@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Script from 'next/script';
 
-export default function AutoPaymentPage() {
+function AutoPaymentContent() {
   const [scriptReady, setScriptReady] = useState(false);
   const [error, setError] = useState('');
   const [paymentStarted, setPaymentStarted] = useState(false);
@@ -289,5 +289,13 @@ export default function AutoPaymentPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function AutoPaymentPage() {
+  return (
+    <Suspense fallback={<div>결제 정보를 준비하는 중...</div>}>
+      <AutoPaymentContent />
+    </Suspense>
   );
 }

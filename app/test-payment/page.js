@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 
-export default function TestPaymentPage() {
+function TestPaymentContent() {
   const [scriptReady, setScriptReady] = useState(false);
   const [orderResult, setOrderResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -214,5 +214,13 @@ export default function TestPaymentPage() {
         </ul>
       </div>
     </div>
+  );
+}
+
+export default function TestPaymentPage() {
+  return (
+    <Suspense fallback={<div>테스트 결제 정보를 준비하는 중...</div>}>
+      <TestPaymentContent />
+    </Suspense>
   );
 }
