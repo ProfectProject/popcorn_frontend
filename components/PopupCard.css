@@ -1,0 +1,75 @@
+.popup-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.popup-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.popup-icon {
+  margin-bottom: 12px;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: #fef3e2;
+  border-radius: 8px;
+  font-size: 20px;
+}
+
+.popup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popup-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.popup-description {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.popup-ctr {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ea580c;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 640px) {
+  .popup-card {
+    padding: 16px;
+  }
+
+  .popup-title {
+    font-size: 14px;
+  }
+
+  .popup-description {
+    font-size: 11px;
+  }
+
+  .popup-ctr {
+    font-size: 12px;
+  }
+}

@@ -1,0 +1,170 @@
+.chart-container {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  height: 220px;
+  padding: 20px 0;
+  position: relative;
+  z-index: 2;
+}
+
+.chart-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  gap: 8px;
+}
+
+.bar {
+  width: 36px;
+  background: #ea580c;
+  border-radius: 4px;
+  transition: all 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transform-origin: bottom;
+}
+
+.bar.animate-in {
+  animation: barGrowth 0.8s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+.bar:hover {
+  background: #dc2626;
+}
+
+
+.bar-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.bar-value.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.bar-label {
+  font-size: 11px;
+  font-weight: 400;
+  color: #64748b;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.bar-label.fade-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 차트 그리드 배경 */
+.chart-grid {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  right: 24px;
+  bottom: 60px;
+  pointer-events: none;
+}
+
+.grid-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, #e2e8f0 20%, #e2e8f0 80%, transparent 100%);
+  opacity: 0;
+  animation: gridFadeIn 0.6s ease forwards;
+}
+
+.grid-line:nth-child(1) { animation-delay: 0.2s; }
+.grid-line:nth-child(2) { animation-delay: 0.3s; }
+.grid-line:nth-child(3) { animation-delay: 0.4s; }
+.grid-line:nth-child(4) { animation-delay: 0.5s; }
+.grid-line:nth-child(5) { animation-delay: 0.6s; }
+
+/* 애니메이션 키프레임 */
+@keyframes barGrowth {
+  0% {
+    transform: scaleY(0);
+    opacity: 0.5;
+  }
+  60% {
+    transform: scaleY(1.1);
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes gridFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.6;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(234, 88, 12, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(234, 88, 12, 0.5);
+  }
+}
+
+/* CSS nth-child 애니메이션 지연은 제거 (JavaScript에서 동적으로 설정) */
+
+/* 반응형 디자인 */
+@media (max-width: 640px) {
+  .chart-container {
+    padding: 20px;
+  }
+
+  .chart {
+    height: 160px;
+    gap: 8px;
+    padding: 16px 0;
+  }
+
+  .bar {
+    width: 28px;
+  }
+
+  .bar-value {
+    font-size: 10px;
+  }
+
+  .bar-label {
+    font-size: 10px;
+  }
+
+  .chart-grid {
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    bottom: 50px;
+  }
+}

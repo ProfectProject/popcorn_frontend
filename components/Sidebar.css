@@ -1,0 +1,194 @@
+.sidebar {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 280px !important;
+  height: 100vh !important;
+  background: white;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden !important;
+  z-index: 100;
+}
+
+/* 로고 */
+.sidebar-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.logo {
+  text-align: center;
+}
+
+.logo-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: #ea580c;
+  letter-spacing: 0.5px;
+}
+
+/* 네비게이션 */
+.sidebar-nav {
+  flex: 1;
+  padding: 0 16px;
+  overflow: hidden;
+}
+
+.nav-section {
+  margin-bottom: 32px;
+}
+
+.nav-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 400;
+  color: #64748b;
+  margin: 0 0 12px 0;
+  padding: 16px;
+}
+
+.nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-item {
+  margin-bottom: 4px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  color: #64748b;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  font-size: 16px;
+  font-weight: 400;
+  border-radius: 100px;
+}
+
+.nav-link:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.nav-link.active {
+  background: #fef3e2;
+  color: #ea580c;
+  border-right: 3px solid #ea580c;
+}
+
+.nav-icon {
+  font-size: 16px;
+  width: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.nav-label {
+  flex: 1;
+}
+
+/* 사용자 정보 */
+.sidebar-footer {
+  padding: 24px 32px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.user-info:hover {
+  background: #f1f5f9;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  background: #ea580c;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.user-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 2px 0;
+}
+
+.user-email {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.logout-icon {
+  font-size: 16px;
+  color: #64748b;
+  margin-left: auto;
+  transform: rotate(0deg);
+  transition: transform 0.2s ease;
+}
+
+.user-info:hover .logout-icon {
+  transform: rotate(-90deg);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .sidebar-nav {
+    padding: 0 16px;
+  }
+
+  .nav-section {
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    padding: 16px;
+  }
+
+  .nav-link {
+    padding: 12px 16px;
+  }
+
+  .sidebar-footer {
+    padding: 24px 16px;
+  }
+}
