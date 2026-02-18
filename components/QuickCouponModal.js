@@ -76,22 +76,22 @@ export default function QuickCouponModal({ onSave, onCancel }) {
 
         <form onSubmit={handleSubmit} className="quick-coupon-form">
           {/* 쿠폰 코드 */}
-          <div className="form-group">
-            <label className="form-label">쿠폰 코드</label>
+          <div className="quick-form-group">
+            <label className="quick-form-label">쿠폰 코드</label>
             <input
               type="text"
               name="code"
               value={formData.code}
               onChange={handleInputChange}
               placeholder="SUMMER2024"
-              className={`form-input ${errors.code ? 'error' : ''}`}
+              className={`quick-form-input ${errors.code ? 'error' : ''}`}
             />
-            {errors.code && <span className="error-message">{errors.code}</span>}
+            {errors.code && <span className="quick-error-message">{errors.code}</span>}
           </div>
 
           {/* 할인율 */}
-          <div className="form-group">
-            <label className="form-label">할인율 (%)</label>
+          <div className="quick-form-group">
+            <label className="quick-form-label">할인율 (%)</label>
             <input
               type="number"
               name="discountValue"
@@ -100,36 +100,36 @@ export default function QuickCouponModal({ onSave, onCancel }) {
               placeholder="20"
               min="1"
               max="100"
-              className={`form-input ${errors.discountValue ? 'error' : ''}`}
+              className={`quick-form-input ${errors.discountValue ? 'error' : ''}`}
             />
-            {errors.discountValue && <span className="error-message">{errors.discountValue}</span>}
+            {errors.discountValue && <span className="quick-error-message">{errors.discountValue}</span>}
           </div>
 
           {/* 만료일 */}
-          <div className="form-group">
-            <label className="form-label">만료일</label>
+          <div className="quick-form-group">
+            <label className="quick-form-label">만료일</label>
             <input
               type="date"
               name="validUntil"
               value={formData.validUntil}
               onChange={handleInputChange}
-              className={`form-input ${errors.validUntil ? 'error' : ''}`}
+              className={`quick-form-input ${errors.validUntil ? 'error' : ''}`}
             />
-            {errors.validUntil && <span className="error-message">{errors.validUntil}</span>}
+            {errors.validUntil && <span className="quick-error-message">{errors.validUntil}</span>}
           </div>
 
           {/* 최대 사용 가능 횟수 */}
-          <div className="form-group">
-            <label className="form-label">최대 사용 가능 횟수</label>
+          <div className="quick-form-group">
+            <label className="quick-form-label">최대 사용 가능 횟수</label>
             <input
               type="number"
               name="usageLimit"
               value={formData.usageLimit}
               onChange={handleInputChange}
               placeholder="100"
-              className="form-input"
+              className="quick-form-input"
             />
-            <span className="form-hint">빈값으로 두면 무제한으로 설정됩니다</span>
+            <span className="quick-form-hint">빈값으로 두면 무제한으로 설정됩니다</span>
           </div>
 
           {/* 액션 버튼 */}

@@ -61,14 +61,7 @@
 .coupon-actions {
   display: flex;
   gap: 8px;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: all 0.2s ease;
-}
-
-.coupon-item:hover .coupon-actions {
   opacity: 1;
-  transform: translateY(0);
 }
 
 .action-btn {
@@ -85,14 +78,26 @@
   transition: all 0.2s ease;
 }
 
-.toggle-btn:hover {
-  background: #f0f9ff;
-  border-color: #3b82f6;
+.edit-btn,
+.status-btn {
+  width: auto;
+  min-width: 58px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
 }
 
-.toggle-btn.active:hover {
-  background: #dcfce7;
-  border-color: #10b981;
+.edit-btn:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+
+.status-btn:hover {
+  background: #fff7ed;
+  border-color: #ea580c;
+  color: #c2410c;
 }
 
 .delete-btn:hover {
@@ -113,13 +118,13 @@
   gap: 12px;
 }
 
-.detail-item {
+.coupon-item .detail-item {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.detail-label {
+.coupon-item .detail-label {
   font-size: 11px;
   font-weight: 500;
   color: #94a3b8;
@@ -127,14 +132,14 @@
   letter-spacing: 0.5px;
 }
 
-.detail-value {
+.coupon-item .detail-value {
   font-size: 13px;
   font-weight: 600;
   color: #374151;
   font-family: 'JetBrains Mono', monospace;
 }
 
-.detail-value.discount {
+.coupon-item .detail-value.discount {
   color: #ea580c;
   font-size: 14px;
 }
@@ -216,11 +221,11 @@
     font-size: 16px;
   }
 
-  .detail-value {
+  .coupon-item .detail-value {
     font-size: 12px;
   }
 
-  .detail-value.discount {
+  .coupon-item .detail-value.discount {
     font-size: 13px;
   }
 }

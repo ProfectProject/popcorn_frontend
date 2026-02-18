@@ -25,6 +25,23 @@
   flex: 1;
 }
 
+.dashboard-filter-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.dashboard-filter-select {
+  min-width: 180px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+}
+
 .page-title {
   font-size: 32px;
   font-weight: 700;
@@ -113,6 +130,15 @@
     gap: 16px;
   }
 
+  .dashboard-filter-row {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .dashboard-filter-select {
+    width: 100%;
+  }
+
   .stats-grid,
   .products-grid,
   .popup-grid {
@@ -121,5 +147,86 @@
 
   .page-title {
     font-size: 20px;
+  }
+}
+
+/* 📊 새로운 대시보드 상태 표시기 스타일 */
+.dashboard-status {
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid;
+  transition: all 0.3s ease;
+}
+
+.dashboard-status.healthy {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-color: #0ea5e9;
+  color: #0c4a6e;
+}
+
+.dashboard-status.fallback {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.green {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+}
+
+.status-dot.orange {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
+}
+
+.status-text {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.status-summary {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-left: auto;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-status {
+    padding: 12px 16px;
+  }
+
+  .status-indicator {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .status-summary {
+    margin-left: 0;
   }
 }

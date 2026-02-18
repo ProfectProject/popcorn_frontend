@@ -1,18 +1,95 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import './manager.css';
+import {
+  clearManagerSession,
+  getManagerToken,
+  loginManager
+} from '../../lib/managerApi';
+
+const AUTO_LOGIN_STORAGE_KEY = 'manager_auto_login';
 
 export default function ManagerLogin() {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
+  const [keepLogin, setKeepLogin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const hasAutoLoginTriedRef = useRef(false);
   const router = useRouter();
+
+  const saveAutoLogin = (credentials) => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(AUTO_LOGIN_STORAGE_KEY, JSON.stringify(credentials));
+  };
+
+  const clearAutoLogin = () => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(AUTO_LOGIN_STORAGE_KEY);
+  };
+
+  const validateManagerRole = (user) => {
+    if (!user?.role || !['OWNER', 'MANAGER'].includes(user.role)) {
+      clearManagerSession();
+      throw new Error('매니저/오너 권한 계정으로 로그인해주세요.');
+    }
+  };
+
+  const loginWithCredentials = async (credentials) => {
+    const { user } = await loginManager(credentials);
+    validateManagerRole(user);
+    router.replace('/manager/dashboard');
+  };
+
+  useEffect(() => {
+    if (getManagerToken()) {
+      router.replace('/manager/dashboard');
+      return;
+    }
+
+    if (hasAutoLoginTriedRef.current || typeof window === 'undefined') return;
+    hasAutoLoginTriedRef.current = true;
+
+    const rawSaved = window.localStorage.getItem(AUTO_LOGIN_STORAGE_KEY);
+    if (!rawSaved) return;
+
+    let savedCredentials = null;
+    try {
+      savedCredentials = JSON.parse(rawSaved);
+    } catch (_error) {
+      clearAutoLogin();
+      return;
+    }
+
+    const email = savedCredentials?.email?.trim();
+    const password = savedCredentials?.password;
+    if (!email || !password) {
+      clearAutoLogin();
+      return;
+    }
+
+    setFormData({ email, password });
+    setKeepLogin(true);
+
+    (async () => {
+      setIsLoading(true);
+      setError('');
+      try {
+        await loginWithCredentials({ email, password });
+      } catch (autoLoginError) {
+        clearManagerSession();
+        clearAutoLogin();
+        setError(autoLoginError?.message || '자동 로그인에 실패했습니다. 다시 로그인해주세요.');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, [router]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -33,19 +110,17 @@ export default function ManagerLogin() {
     setError('');
 
     try {
-      console.log('로그인 시도:', formData);
-
-      // TODO: 실제 로그인 API 호출
-      // 현재는 임시로 성공으로 처리
-      if (formData.email && formData.password) {
-        // 로그인 성공 시 대시보드로 리다이렉트
-        await new Promise(resolve => setTimeout(resolve, 1000)); // 로딩 효과
-        router.push('/manager/dashboard');
+      await loginWithCredentials(formData);
+      if (keepLogin) {
+        saveAutoLogin({
+          email: formData.email.trim(),
+          password: formData.password
+        });
       } else {
-        setError('이메일과 비밀번호를 입력해주세요');
+        clearAutoLogin();
       }
     } catch (err) {
-      setError('로그인에 실패했습니다. 다시 시도해주세요.');
+      setError(err?.message || '로그인에 실패했습니다. 다시 시도해주세요.');
       console.error('로그인 에러:', err);
     } finally {
       setIsLoading(false);
@@ -115,7 +190,13 @@ export default function ManagerLogin() {
 
             <div className="form-options">
               <label className="checkbox-wrapper">
-                <input type="checkbox" className="checkbox" disabled={isLoading} />
+                <input
+                  type="checkbox"
+                  className="checkbox"
+                  checked={keepLogin}
+                  onChange={(e) => setKeepLogin(e.target.checked)}
+                  disabled={isLoading}
+                />
                 <span className="checkbox-text">로그인 상태 유지</span>
               </label>
               <a href="#" className="forgot-password">비밀번호 찾기</a>

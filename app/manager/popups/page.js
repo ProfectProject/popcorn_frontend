@@ -1,10 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../../../components/Sidebar';
 import PopupCreateModal from '../../../components/PopupCreateModal';
+import PopupStatusModal from '../../../components/PopupStatusModal';
 import './popups.css';
+import {
+  clearManagerSession,
+  createPopup,
+  deletePopup,
+  getManagerToken,
+  getManagerUser,
+  getSelectedStoreId,
+  listPopups,
+  listStores,
+  mapPopupToUi,
+  setSelectedPopupId,
+  setSelectedStoreId as saveSelectedStoreId,
+  updatePopup,
+  updatePopupStatus as updatePopupStatusApi
+} from '../../../lib/managerApi';
 
 export default function PopupsPage() {
   const router = useRouter();
@@ -12,78 +28,124 @@ export default function PopupsPage() {
     name: '박매니저',
     email: 'manager@popcorn.kr'
   });
-
-  // 팝업 통계 데이터
-  const stats = [
-    { label: '진행중 팝업', value: '3', unit: '개', color: '#ea580c' },
-    { label: '예정된 팝업', value: '2', unit: '개', color: '#3b82f6' },
-    { label: '총 매출', value: '₩12.5M', unit: '', color: '#10b981' }
-  ];
-
-  // 팝업 데이터
-  const [popups, setPopups] = useState([
-    {
-      id: 1,
-      name: '여름 시즌 팝업',
-      location: '서울시 강남구 테헤란로 123',
-      startDate: '2024-06-01',
-      endDate: '2024-08-31',
-      status: 'active',
-      totalSales: 4200000,
-      dailyVisitors: 150,
-      productCount: 8,
-      image: '🌞',
-      color: '#ea580c'
-    },
-    {
-      id: 2,
-      name: '대학교 축제 팝업',
-      location: '서울시 관악구 서울대학교',
-      startDate: '2024-05-15',
-      endDate: '2024-05-17',
-      status: 'completed',
-      totalSales: 890000,
-      dailyVisitors: 200,
-      productCount: 6,
-      image: '🎓',
-      color: '#3b82f6'
-    },
-    {
-      id: 3,
-      name: '쇼핑몰 팝업',
-      location: '경기도 성남시 분당구 정자동',
-      startDate: '2024-07-01',
-      endDate: '2024-07-15',
-      status: 'planned',
-      totalSales: 0,
-      dailyVisitors: 0,
-      productCount: 10,
-      image: '🛍️',
-      color: '#8b5cf6'
-    }
-  ]);
-
+  const [stores, setStores] = useState([]);
+  const [selectedStoreId, setSelectedStoreId] = useState('');
+  const [popups, setPopups] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPopup, setEditingPopup] = useState(null);
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusTargetPopup, setStatusTargetPopup] = useState(null);
 
-  const handleCreatePopup = (popupData) => {
-    const newPopup = {
-      ...popupData,
-      id: Date.now(),
-      totalSales: 0,
-      dailyVisitors: 0,
-      productCount: 0,
-      status: new Date(popupData.startDate) > new Date() ? 'planned' : 'active'
+  useEffect(() => {
+    const token = getManagerToken();
+    if (!token) {
+      router.replace('/manager');
+      return;
+    }
+
+    const savedUser = getManagerUser();
+    if (savedUser) {
+      setUser({
+        name: savedUser.name || savedUser.email || '매니저',
+        email: savedUser.email || 'manager@popcorn.kr'
+      });
+    }
+
+    const loadStores = async () => {
+      setError('');
+      setIsLoading(true);
+
+      try {
+        const storeList = await listStores();
+        setStores(storeList);
+
+        if (!storeList.length) {
+          setSelectedStoreId('');
+          setPopups([]);
+          return;
+        }
+
+        const savedStoreId = getSelectedStoreId();
+        const hasSavedStore = savedStoreId && storeList.some((store) => store.id === savedStoreId);
+        const targetStoreId = hasSavedStore ? savedStoreId : storeList[0].id;
+
+        setSelectedStoreId(targetStoreId);
+        saveSelectedStoreId(targetStoreId);
+      } catch (loadError) {
+        setError(loadError?.message || '스토어 목록을 불러오지 못했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
     };
-    setPopups(prev => [newPopup, ...prev]);
-    setShowCreateModal(false);
+
+    loadStores();
+  }, [router]);
+
+  useEffect(() => {
+    if (!selectedStoreId) return;
+
+    const loadPopupsByStore = async () => {
+      setError('');
+      setIsLoading(true);
+
+      try {
+        const popupList = await listPopups(selectedStoreId, { page: 1, size: 100 });
+        setPopups((prev) => {
+          const prevById = new Map(prev.map((item) => [item.id, item]));
+          return popupList.map((item) => mapPopupToUi(item, prevById.get(item.popupId)));
+        });
+      } catch (loadError) {
+        setError(loadError?.message || '팝업 목록을 불러오지 못했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPopupsByStore();
+  }, [selectedStoreId]);
+
+  const refreshPopups = async () => {
+    if (!selectedStoreId) return;
+    const popupList = await listPopups(selectedStoreId, { page: 1, size: 100 });
+    setPopups((prev) => {
+      const prevById = new Map(prev.map((item) => [item.id, item]));
+      return popupList.map((item) => mapPopupToUi(item, prevById.get(item.popupId)));
+    });
   };
 
-  const handleDeletePopup = (popupId) => {
+  const handleCreatePopup = async (popupData) => {
+    if (!selectedStoreId) {
+      setError('스토어를 먼저 선택해주세요.');
+      return;
+    }
+
+    setIsSaving(true);
+    setError('');
+
+    try {
+      await createPopup(selectedStoreId, popupData);
+      await refreshPopups();
+      setShowCreateModal(false);
+    } catch (saveError) {
+      setError(saveError?.message || '팝업 생성에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeletePopup = async (popupId) => {
     if (confirm('정말로 이 팝업을 삭제하시겠습니까?')) {
-      setPopups(prev => prev.filter(p => p.id !== popupId));
+      setError('');
+      try {
+        await deletePopup(popupId);
+        setPopups(prev => prev.filter(p => p.id !== popupId));
+      } catch (deleteError) {
+        setError(deleteError?.message || '팝업 삭제에 실패했습니다.');
+      }
     }
   };
 
@@ -92,28 +154,69 @@ export default function PopupsPage() {
     setShowEditModal(true);
   };
 
-  const handleUpdatePopup = (updatedPopup) => {
-    setPopups(prev => prev.map(popup =>
-      popup.id === updatedPopup.id ? updatedPopup : popup
-    ));
-    setShowEditModal(false);
-    setEditingPopup(null);
+  const handleOpenStatusModal = (popup) => {
+    setStatusTargetPopup(popup);
+    setShowStatusModal(true);
+  };
+
+  const closeStatusModal = () => {
+    setShowStatusModal(false);
+    setStatusTargetPopup(null);
+  };
+
+  const handleUpdatePopup = async (updatedPopup) => {
+    setIsSaving(true);
+    setError('');
+
+    try {
+      await updatePopup(updatedPopup.id, updatedPopup);
+      await refreshPopups();
+      setShowEditModal(false);
+      setEditingPopup(null);
+    } catch (updateError) {
+      setError(updateError?.message || '팝업 수정에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdatePopupStatus = async (nextStatus) => {
+    if (!statusTargetPopup?.id) return;
+
+    setIsSaving(true);
+    setError('');
+
+    try {
+      await updatePopupStatusApi(statusTargetPopup.id, nextStatus);
+      await refreshPopups();
+      closeStatusModal();
+    } catch (updateError) {
+      setError(updateError?.message || '팝업 상태 변경에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleViewDetails = (popup) => {
+    setSelectedPopupId(popup.id);
     router.push(`/manager/popups/${popup.id}`);
   };
 
-  const filteredPopups = selectedStatus === 'all'
-    ? popups
-    : popups.filter(popup => popup.status === selectedStatus);
-
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('manager_token');
-      localStorage.removeItem('manager_user');
-    }
+    clearManagerSession();
     router.push('/manager');
+  };
+
+  const handleStoreChange = (e) => {
+    const nextStoreId = e.target.value;
+    setSelectedStoreId(nextStoreId);
+    saveSelectedStoreId(nextStoreId);
+  };
+
+  const getPopupStatusText = (status) => {
+    if (status === 'active') return '운영중';
+    if (status === 'planned') return '예정';
+    return '완료';
   };
 
   return (
@@ -126,20 +229,41 @@ export default function PopupsPage() {
           <div className="header-content">
             <h1 className="page-title">팝업 관리</h1>
             <p className="page-subtitle">팝업 스토어 현황을 관리하세요</p>
+            {stores.length > 0 && (
+              <select value={selectedStoreId} onChange={handleStoreChange} className="status-filter-select">
+                {stores.map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
             className="add-popup-btn"
+            disabled={!selectedStoreId || isSaving}
           >
             팝업 추가
           </button>
         </header>
 
+        {error && <div className="error-alert">{error}</div>}
+
+        {!stores.length && !isLoading && !error && (
+          <div className="loading">등록된 스토어가 없습니다. 스토어를 먼저 생성해주세요.</div>
+        )}
+
+        {isLoading && (
+          <div className="loading">팝업 정보를 불러오는 중...</div>
+        )}
+
         {/* 팝업 목록 */}
-        <section className="popups-content">
+        {!isLoading && stores.length > 0 && (
+          <section className="popups-content">
           <h2 className="section-title">팝업 목록</h2>
           <div className="popups-list">
-            {filteredPopups.map(popup => (
+            {popups.map(popup => (
               <div
                 key={popup.id}
                 className="popup-item"
@@ -151,12 +275,22 @@ export default function PopupsPage() {
                 </div>
                 <div className="popup-right">
                   <span className={`popup-status ${popup.status}`}>
-                    {popup.status === 'active' ? '운영중' :
-                     popup.status === 'scheduled' ? '예정' : '완료'}
+                    {getPopupStatusText(popup.status)}
                   </span>
                   <div className="popup-actions">
                     <button
+                      className="action-btn status-btn"
+                      disabled={isSaving}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenStatusModal(popup);
+                      }}
+                    >
+                      상태
+                    </button>
+                    <button
                       className="action-btn edit-btn"
+                      disabled={isSaving}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditPopup(popup);
@@ -166,6 +300,7 @@ export default function PopupsPage() {
                     </button>
                     <button
                       className="action-btn delete-btn"
+                      disabled={isSaving}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeletePopup(popup.id);
@@ -178,7 +313,8 @@ export default function PopupsPage() {
               </div>
             ))}
           </div>
-        </section>
+          </section>
+        )}
 
         {/* 팝업 생성 모달 */}
         {showCreateModal && (
@@ -197,6 +333,16 @@ export default function PopupsPage() {
               setEditingPopup(null);
             }}
             editData={editingPopup}
+          />
+        )}
+
+        {/* 팝업 상태 변경 모달 */}
+        {showStatusModal && statusTargetPopup && (
+          <PopupStatusModal
+            popup={statusTargetPopup}
+            isSaving={isSaving}
+            onSave={handleUpdatePopupStatus}
+            onCancel={closeStatusModal}
           />
         )}
       </main>

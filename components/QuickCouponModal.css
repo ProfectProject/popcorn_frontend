@@ -74,13 +74,22 @@
   gap: 20px;
 }
 
-.form-group {
+.quick-form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.quick-form-row .quick-form-group {
+  flex: 1;
+}
+
+.quick-form-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.form-label {
+.quick-form-label {
   font-size: 12px;
   font-weight: 600;
   color: #374151;
@@ -88,7 +97,7 @@
   letter-spacing: 0.5px;
 }
 
-.form-input {
+.quick-form-input {
   padding: 12px 16px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
@@ -99,28 +108,28 @@
   font-family: inherit;
 }
 
-.form-input:focus {
+.quick-form-input:focus {
   outline: none;
   border-color: #ea580c;
   box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
 }
 
-.form-input.error {
+.quick-form-input.error {
   border-color: #dc2626;
 }
 
-.form-input.error:focus {
+.quick-form-input.error:focus {
   border-color: #dc2626;
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
 }
 
-.error-message {
+.quick-error-message {
   font-size: 11px;
   color: #dc2626;
   margin-top: 4px;
 }
 
-.form-hint {
+.quick-form-hint {
   font-size: 11px;
   color: #9ca3af;
   margin-top: 4px;
@@ -132,7 +141,7 @@
   gap: 0;
 }
 
-.discount-input-group .form-input {
+.discount-input-group .quick-form-input {
   flex: 1;
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
@@ -168,8 +177,8 @@
   border-top: 1px solid #e2e8f0;
 }
 
-.cancel-btn,
-.register-btn {
+.quick-modal-actions .cancel-btn,
+.quick-modal-actions .register-btn {
   padding: 12px 20px;
   border: none;
   border-radius: 8px;
@@ -179,22 +188,22 @@
   transition: all 0.2s ease;
 }
 
-.cancel-btn {
+.quick-modal-actions .cancel-btn {
   background: #f1f5f9;
   color: #64748b;
 }
 
-.cancel-btn:hover {
+.quick-modal-actions .cancel-btn:hover {
   background: #e2e8f0;
   color: #374151;
 }
 
-.register-btn {
+.quick-modal-actions .register-btn {
   background: #ea580c;
   color: white;
 }
 
-.register-btn:hover {
+.quick-modal-actions .register-btn:hover {
   background: #dc2626;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
@@ -241,8 +250,8 @@
     flex-direction: column-reverse;
   }
 
-  .cancel-btn,
-  .register-btn {
+  .quick-modal-actions .cancel-btn,
+  .quick-modal-actions .register-btn {
     width: 100%;
     padding: 14px;
   }
@@ -252,7 +261,7 @@
     gap: 8px;
   }
 
-  .discount-input-group .form-input {
+  .discount-input-group .quick-form-input {
     border-radius: 8px;
     border-right: 1px solid #d1d5db;
   }

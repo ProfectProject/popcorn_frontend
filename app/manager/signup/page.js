@@ -1,10 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import '../manager.css';
+import {
+  createStore,
+  loginManager,
+  signupManager
+} from '../../../lib/managerApi';
 
 export default function ManagerSignup() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -15,6 +22,8 @@ export default function ManagerSignup() {
   });
 
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -29,6 +38,10 @@ export default function ManagerSignup() {
         ...prev,
         [name]: ''
       }));
+    }
+
+    if (submitError) {
+      setSubmitError('');
     }
   };
 
@@ -68,7 +81,7 @@ export default function ManagerSignup() {
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const validationErrors = validateForm();
@@ -77,8 +90,36 @@ export default function ManagerSignup() {
       return;
     }
 
-    console.log('회원가입 시도:', formData);
-    // TODO: 회원가입 API 호출
+    setIsSubmitting(true);
+    setSubmitError('');
+
+    try {
+      await signupManager({
+        email: formData.email,
+        password: formData.password,
+        passwordCheck: formData.confirmPassword,
+        name: formData.name,
+        phone: formData.phone,
+        role: 'OWNER'
+      });
+
+      await loginManager({
+        email: formData.email,
+        password: formData.password
+      });
+
+      try {
+        await createStore(formData.storeName.trim());
+      } catch (storeError) {
+        console.error('초기 스토어 생성 실패:', storeError);
+      }
+
+      router.push('/manager/dashboard');
+    } catch (error) {
+      setSubmitError(error?.message || '회원가입에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -105,6 +146,12 @@ export default function ManagerSignup() {
           </div>
 
           <form onSubmit={handleSubmit} className="login-form">
+            {submitError && (
+              <div className="error-alert">
+                {submitError}
+              </div>
+            )}
+
             <div className="input-group">
               <label htmlFor="name" className="input-label">이름</label>
               <input
@@ -115,6 +162,7 @@ export default function ManagerSignup() {
                 onChange={handleInputChange}
                 placeholder="홍길동"
                 className={`form-input ${errors.name ? 'error' : ''}`}
+                disabled={isSubmitting}
                 required
               />
               {errors.name && <span className="error-message">{errors.name}</span>}
@@ -130,6 +178,7 @@ export default function ManagerSignup() {
                 onChange={handleInputChange}
                 placeholder="manager@popcorn.kr"
                 className={`form-input ${errors.email ? 'error' : ''}`}
+                disabled={isSubmitting}
                 required
               />
               {errors.email && <span className="error-message">{errors.email}</span>}
@@ -145,6 +194,7 @@ export default function ManagerSignup() {
                 onChange={handleInputChange}
                 placeholder="팝콘 팝업스토어 강남점"
                 className={`form-input ${errors.storeName ? 'error' : ''}`}
+                disabled={isSubmitting}
                 required
               />
               {errors.storeName && <span className="error-message">{errors.storeName}</span>}
@@ -160,6 +210,7 @@ export default function ManagerSignup() {
                 onChange={handleInputChange}
                 placeholder="010-1234-5678"
                 className={`form-input ${errors.phone ? 'error' : ''}`}
+                disabled={isSubmitting}
                 required
               />
               {errors.phone && <span className="error-message">{errors.phone}</span>}
@@ -175,6 +226,7 @@ export default function ManagerSignup() {
                 onChange={handleInputChange}
                 placeholder="비밀번호를 입력하세요"
                 className={`form-input ${errors.password ? 'error' : ''}`}
+                disabled={isSubmitting}
                 required
               />
               {errors.password && <span className="error-message">{errors.password}</span>}
@@ -190,6 +242,7 @@ export default function ManagerSignup() {
                 onChange={handleInputChange}
                 placeholder="비밀번호를 다시 입력하세요"
                 className={`form-input ${errors.confirmPassword ? 'error' : ''}`}
+                disabled={isSubmitting}
                 required
               />
               {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
@@ -197,15 +250,15 @@ export default function ManagerSignup() {
 
             <div className="form-options">
               <label className="checkbox-wrapper">
-                <input type="checkbox" className="checkbox" required />
+                <input type="checkbox" className="checkbox" disabled={isSubmitting} required />
                 <span className="checkbox-text">
                   <Link href="#" className="terms-link">이용약관</Link> 및 <Link href="#" className="terms-link">개인정보처리방침</Link>에 동의합니다
                 </span>
               </label>
             </div>
 
-            <button type="submit" className="login-button">
-              회원가입
+            <button type="submit" className="login-button" disabled={isSubmitting}>
+              {isSubmitting ? '가입 중...' : '회원가입'}
             </button>
           </form>
 

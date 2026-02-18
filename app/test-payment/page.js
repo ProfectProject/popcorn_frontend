@@ -9,6 +9,7 @@ function TestPaymentContent() {
   const [orderResult, setOrderResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const apiBase = "http://localhost:8080";
 
   const searchParams = useSearchParams();
 
@@ -61,7 +62,7 @@ function TestPaymentContent() {
     setError('');
 
     try {
-      const response = await fetch('/api/v1/orders', {
+      const response = await fetch(`${apiBase}/api/v1/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

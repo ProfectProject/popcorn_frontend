@@ -11,8 +11,6 @@ export default function StoreAddModal({ onSave, onCancel, editData = null }) {
     phone: editData?.phone || '',
     category: editData?.category || '',
     manager: editData?.manager || '', // 기존 데이터에 있는 필드 추가
-    area: editData?.area || '', // 기존 데이터에 있는 필드 추가
-    monthlyRent: editData?.monthlyRent || '', // 기존 데이터에 있는 필드 추가
     openTime: editData?.openTime || '',
     closeTime: editData?.closeTime || '',
     description: editData?.description || ''
@@ -69,14 +67,6 @@ export default function StoreAddModal({ onSave, onCancel, editData = null }) {
       newErrors.manager = '담당자명을 입력해주세요.';
     }
 
-    if (!formData.area.trim()) {
-      newErrors.area = '면적을 입력해주세요.';
-    }
-
-    if (!formData.monthlyRent.trim()) {
-      newErrors.monthlyRent = '월 임대료를 입력해주세요.';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -91,8 +81,6 @@ export default function StoreAddModal({ onSave, onCancel, editData = null }) {
         location: formData.address, // address → location 매핑
         manager: formData.manager,
         phone: formData.phone,
-        area: formData.area,
-        monthlyRent: parseInt(formData.monthlyRent) || 0,
         status: editData?.status || 'active',
         openDate: editData?.openDate || new Date().toISOString().split('T')[0],
         currentPopups: editData?.currentPopups || 0,
@@ -218,34 +206,6 @@ export default function StoreAddModal({ onSave, onCancel, editData = null }) {
               className={`form-input ${errors.manager ? 'error' : ''}`}
             />
             {errors.manager && <span className="error-message">{errors.manager}</span>}
-          </div>
-
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">면적 (㎡)</label>
-              <input
-                type="text"
-                name="area"
-                value={formData.area}
-                onChange={handleChange}
-                placeholder="120㎡"
-                className={`form-input ${errors.area ? 'error' : ''}`}
-              />
-              {errors.area && <span className="error-message">{errors.area}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">월 임대료 (원)</label>
-              <input
-                type="number"
-                name="monthlyRent"
-                value={formData.monthlyRent}
-                onChange={handleChange}
-                placeholder="5000000"
-                className={`form-input ${errors.monthlyRent ? 'error' : ''}`}
-              />
-              {errors.monthlyRent && <span className="error-message">{errors.monthlyRent}</span>}
-            </div>
           </div>
 
           <div className="form-group">

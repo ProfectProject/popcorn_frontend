@@ -1,68 +1,204 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '../../../components/Sidebar';
 import OrderStats from '../../../components/OrderStats';
 import OrderList from '../../../components/OrderList';
 import OrderDetailModal from '../../../components/OrderDetailModal';
 import './orders.css';
+import {
+  aggregateOrdersFromOrderItems,
+  clearManagerSession,
+  getDashboardOrders,
+  getManagerToken,
+  getManagerUser,
+  isApiError,
+  listOrderItems,
+  listPopups,
+  listStores
+} from '../../../lib/managerApi';
 
 export default function OrdersPage() {
+  const router = useRouter();
   const [user, setUser] = useState({
     name: '박매니저',
     email: 'manager@popcorn.kr'
   });
-
-  // 주문 통계 데이터
-  const stats = [
-    { label: '오늘 주문', value: '24', unit: '건', color: '#ea580c' },
-    { label: '배송중', value: '8', unit: '건', color: '#3b82f6' },
-    { label: '총매출', value: '312', unit: '만원', color: '#10b981' }
-  ];
-
-  // 주문 데이터
-  const [orders, setOrders] = useState([
-    {
-      id: 'ORD-202401001-001',
-      customerName: '김고객',
-      products: ['카라멜 팝콘 x2', '치즈 팝콘 x1'],
-      totalAmount: 12000,
-      status: 'completed',
-      orderDate: '2024-01-15 14:30',
-      phone: '010-1234-5678'
-    },
-    {
-      id: 'ORD-202401001-002',
-      customerName: '이고객',
-      products: ['초콜릿 팝콘 x1', '카라멜 팝콘 x1'],
-      totalAmount: 8400,
-      status: 'shipping',
-      orderDate: '2024-01-15 13:45',
-      phone: '010-2345-6789'
-    },
-    {
-      id: 'ORD-202401001-003',
-      customerName: '박고객',
-      products: ['치즈 팝콘 x3'],
-      totalAmount: 12600,
-      status: 'pending',
-      orderDate: '2024-01-15 12:15',
-      phone: '010-3456-7890'
-    },
-    {
-      id: 'ORD-202401001-004',
-      customerName: '최고객',
-      products: ['카라멜 팝콘 x1', '초콜릿 팝콘 x2'],
-      totalAmount: 13400,
-      status: 'completed',
-      orderDate: '2024-01-15 11:20',
-      phone: '010-4567-8901'
-    }
-  ]);
-
+  const [stores, setStores] = useState([]);
+  const [selectedStoreId, setSelectedStoreIdState] = useState('all');
+  const [popups, setPopups] = useState([]);
+  const [selectedPopupId, setSelectedPopupIdState] = useState('all');
+  const [orders, setOrders] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+
+  useEffect(() => {
+    const token = getManagerToken();
+    if (!token) {
+      router.replace('/manager');
+      return;
+    }
+
+    const savedUser = getManagerUser();
+    if (savedUser) {
+      setUser({
+        name: savedUser.name || savedUser.email || '매니저',
+        email: savedUser.email || 'manager@popcorn.kr'
+      });
+    }
+
+    const loadStoresData = async () => {
+      setError('');
+      setIsLoading(true);
+
+      try {
+        const storeList = await listStores();
+        setStores(storeList);
+
+        if (!storeList.length) {
+          setSelectedStoreIdState('all');
+          setPopups([]);
+          setSelectedPopupIdState('all');
+          setOrders([]);
+          return;
+        }
+      } catch (loadError) {
+        setError(loadError?.message || '스토어 정보를 불러오지 못했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadStoresData();
+  }, [router]);
+
+  useEffect(() => {
+    const loadPopupsByStore = async () => {
+      setError('');
+      setIsLoading(true);
+
+      try {
+        let popupList = [];
+        if (selectedStoreId === 'all') {
+          const popupResults = await Promise.all(
+            stores.map((store) => listPopups(store.id, { page: 1, size: 100 }))
+          );
+          const popupMap = new Map();
+          popupResults.flat().forEach((popup) => {
+            if (!popup?.popupId || popupMap.has(popup.popupId)) return;
+            popupMap.set(popup.popupId, popup);
+          });
+          popupList = [...popupMap.values()];
+        } else {
+          popupList = await listPopups(selectedStoreId, { page: 1, size: 100 });
+        }
+        setPopups(popupList);
+        if (!popupList.some((popup) => popup.popupId === selectedPopupId)) {
+          setSelectedPopupIdState('all');
+        }
+      } catch (loadError) {
+        setError(loadError?.message || '팝업 정보를 불러오지 못했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPopupsByStore();
+  }, [selectedStoreId, stores, selectedPopupId]);
+
+  useEffect(() => {
+    const loadOrdersData = async () => {
+      setError('');
+      setIsLoading(true);
+
+      try {
+        const pageSize = 100;
+        let page = 0;
+        let hasNext = true;
+        const allItems = [];
+
+        while (hasNext) {
+          const orderPage = await getDashboardOrders({
+            page,
+            size: pageSize,
+            sortBy: 'orderedAt',
+            sortDirection: 'desc'
+          });
+          const pageItems = orderPage?.orders || orderPage?.items || [];
+          allItems.push(...pageItems);
+          hasNext = Boolean(orderPage?.pageInfo?.hasNext);
+          page += 1;
+          if (page > 50) break;
+        }
+
+        let items = allItems;
+
+        if (selectedStoreId !== 'all') {
+          items = items.filter((item) => String(item.storeId || '') === String(selectedStoreId));
+        }
+        if (selectedPopupId !== 'all') {
+          items = items.filter((item) => String(item.popupId || '') === String(selectedPopupId));
+        }
+
+        setOrders(aggregateOrdersFromOrderItems(items));
+      } catch (loadError) {
+        // Fallback for legacy endpoint when a specific store/popup is selected.
+        if (selectedStoreId !== 'all' && selectedPopupId !== 'all') {
+          try {
+            const legacyPage = await listOrderItems(selectedStoreId, selectedPopupId, { page: 0, size: 200 });
+            const legacyItems = legacyPage?.items || legacyPage?.orders || [];
+            setOrders(aggregateOrdersFromOrderItems(legacyItems));
+            return;
+          } catch (_legacyError) {
+            // Continue to regular error handling below.
+          }
+        }
+
+        if (isApiError(loadError, 404) || isApiError(loadError, 403)) {
+          setOrders([]);
+        } else {
+          setError(loadError?.message || '주문 데이터를 불러오지 못했습니다.');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadOrdersData();
+  }, [selectedStoreId, selectedPopupId]);
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const weeklyOrderCount = orders.filter((order) => {
+      if (!order.orderDate) return false;
+      const ordered = new Date(order.orderDate);
+      return ordered >= sevenDaysAgo && ordered <= now;
+    }).length;
+
+    const shippingCount = orders.filter((order) => order.status === 'shipping').length;
+    const monthlyRevenue = orders.reduce((sum, order) => {
+      if (!order.orderDate) return sum;
+      const ordered = new Date(order.orderDate);
+      if (ordered.getFullYear() === now.getFullYear() && ordered.getMonth() === now.getMonth()) {
+        return sum + (order.totalAmount || 0);
+      }
+      return sum;
+    }, 0);
+
+    return [
+      { label: '주문 건수(7일)', value: String(weeklyOrderCount), unit: '건', color: '#ea580c' },
+      { label: '진행중', value: String(shippingCount), unit: '건', color: '#3b82f6' },
+      { label: '총매출(월)', value: String(Math.round(monthlyRevenue / 10000)), unit: '만원', color: '#10b981' }
+    ];
+  }, [orders]);
 
   const handleStatusChange = (orderId, newStatus) => {
     setOrders(prev =>
@@ -89,7 +225,19 @@ export default function OrdersPage() {
     : orders.filter(order => order.status === selectedStatus);
 
   const handleLogout = () => {
-    console.log('로그아웃');
+    clearManagerSession();
+    router.push('/manager');
+  };
+
+  const handleStoreChange = (e) => {
+    const nextStoreId = e.target.value;
+    setSelectedStoreIdState(nextStoreId);
+    setSelectedPopupIdState('all');
+  };
+
+  const handlePopupChange = (e) => {
+    const nextPopupId = e.target.value;
+    setSelectedPopupIdState(nextPopupId);
   };
 
   return (
@@ -102,9 +250,36 @@ export default function OrdersPage() {
           <div className="header-content">
             <h1 className="page-title">주문 현황</h1>
             <p className="page-subtitle">고객 주문을 관리하고 배송 상태를 업데이트하세요</p>
+            {stores.length > 0 && (
+              <div className="status-filter" style={{ marginTop: '12px' }}>
+                <select value={selectedStoreId} onChange={handleStoreChange} className="filter-btn">
+                  <option value="all">전체 스토어</option>
+                  {stores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.name}
+                    </option>
+                  ))}
+                </select>
+                <select value={selectedPopupId} onChange={handlePopupChange} className="filter-btn">
+                  <option value="all">전체 팝업</option>
+                  {popups.map((popup) => (
+                    <option key={popup.popupId} value={popup.popupId}>
+                      {popup.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </header>
 
+        {error && <div className="error-alert">{error}</div>}
+        {isLoading && <div className="loading">주문 정보를 불러오는 중...</div>}
+        {!isLoading && !error && stores.length === 0 && (
+          <div className="loading">등록된 스토어가 없습니다. 스토어를 먼저 생성해주세요.</div>
+        )}
+        {!isLoading && stores.length > 0 && (
+          <>
         {/* 통계 카드 */}
         <section className="stats-section">
           <OrderStats stats={stats} />
@@ -148,6 +323,8 @@ export default function OrdersPage() {
             onViewDetails={handleViewDetails}
           />
         </section>
+          </>
+        )}
 
         {/* 주문 상세 모달 */}
         {showDetailModal && selectedOrder && (

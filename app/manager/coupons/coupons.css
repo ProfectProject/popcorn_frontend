@@ -21,11 +21,11 @@
   margin-bottom: 32px;
 }
 
-.header-content {
+.coupons-header .header-content {
   flex: 1;
 }
 
-.page-title {
+.coupons-main .page-title {
   font-size: 32px;
   font-weight: 700;
   color: #1e293b;
@@ -33,7 +33,7 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
-.page-subtitle {
+.coupons-main .page-subtitle {
   font-size: 14px;
   color: #64748b;
   margin: 0;
@@ -157,6 +157,116 @@
   color: white;
 }
 
+.auto-result-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(2px);
+}
+
+.auto-result-modal {
+  width: min(520px, 100%);
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+}
+
+.auto-result-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.auto-result-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.auto-result-modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.auto-result-modal-close:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.auto-result-modal-body {
+  padding: 20px;
+}
+
+.auto-result-modal-message {
+  margin: 0;
+  font-size: 14px;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.auto-result-modal-code {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #475569;
+}
+
+.auto-result-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 20px 20px;
+}
+
+.auto-result-secondary-btn,
+.auto-result-primary-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auto-result-secondary-btn {
+  border-color: #e2e8f0;
+  background: #fff;
+  color: #475569;
+}
+
+.auto-result-secondary-btn:hover {
+  background: #f8fafc;
+}
+
+.auto-result-primary-btn {
+  background: #ea580c;
+  color: #fff;
+}
+
+.auto-result-primary-btn:hover:not(:disabled) {
+  background: #c2410c;
+}
+
+.auto-result-primary-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* 반응형 디자인 */
 @media (max-width: 768px) {
   .coupons-container {
@@ -194,7 +304,7 @@
     flex-shrink: 0;
   }
 
-  .page-title {
+  .coupons-main .page-title {
     font-size: 20px;
   }
 

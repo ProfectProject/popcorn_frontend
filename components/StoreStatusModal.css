@@ -1,0 +1,151 @@
+.store-status-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(2px);
+}
+
+.store-status-modal {
+  width: min(520px, 100%);
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+}
+
+.store-status-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.store-status-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.store-status-modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.store-status-modal-close:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.store-status-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.store-status-modal-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.store-status-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.store-status-option {
+  display: grid;
+  grid-template-columns: 18px 70px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.store-status-option:has(input:checked) {
+  border-color: #ea580c;
+  background: #fff7ed;
+}
+
+.store-status-option-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.store-status-option-description {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.store-status-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.store-status-cancel-btn,
+.store-status-save-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.store-status-cancel-btn {
+  border-color: #e2e8f0;
+  background: #fff;
+  color: #475569;
+}
+
+.store-status-cancel-btn:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.store-status-save-btn {
+  background: #ea580c;
+  color: #fff;
+}
+
+.store-status-save-btn:hover:not(:disabled) {
+  background: #c2410c;
+}
+
+.store-status-cancel-btn:disabled,
+.store-status-save-btn:disabled,
+.store-status-modal-close:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .store-status-modal {
+    width: 100%;
+  }
+
+  .store-status-option {
+    grid-template-columns: 18px 56px 1fr;
+  }
+}

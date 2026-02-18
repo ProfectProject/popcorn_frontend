@@ -3,7 +3,7 @@
 import CouponItem from './CouponItem';
 import './CouponList.css';
 
-export default function CouponList({ coupons, onDelete, onToggle }) {
+export default function CouponList({ coupons, onDelete, onStatusChange, onEdit }) {
   if (coupons.length === 0) {
     return (
       <div className="empty-coupons">
@@ -21,7 +21,8 @@ export default function CouponList({ coupons, onDelete, onToggle }) {
           key={coupon.id}
           coupon={coupon}
           onDelete={onDelete}
-          onToggle={onToggle}
+          onStatusChange={onStatusChange}
+          onEdit={onEdit}
         />
       ))}
     </div>

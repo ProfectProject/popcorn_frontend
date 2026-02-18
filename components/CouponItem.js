@@ -8,11 +8,13 @@ const statusConfig = {
   expired: { label: '만료', color: '#dc2626', bgColor: '#fee2e2' }
 };
 
-export default function CouponItem({ coupon, onDelete, onToggle }) {
+export default function CouponItem({ coupon, onDelete, onStatusChange, onEdit }) {
   const status = statusConfig[coupon.status] || statusConfig.active;
 
   const formatDate = (dateString) => {
+    if (!dateString) return '-';
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '-';
     return date.toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: 'short',
@@ -42,7 +44,7 @@ export default function CouponItem({ coupon, onDelete, onToggle }) {
       <div className="coupon-header">
         <div className="coupon-info">
           <div className="coupon-code-section">
-            <h3 className="coupon-code">{coupon.code}</h3>
+            <h3 className="coupon-code">{coupon.name}</h3>
             <span
               className="status-badge"
               style={{
@@ -53,18 +55,27 @@ export default function CouponItem({ coupon, onDelete, onToggle }) {
               {status.label}
             </span>
           </div>
-          <p className="coupon-name">{coupon.name}</p>
+          {coupon.code && <p className="coupon-name">{coupon.code}</p>}
         </div>
 
         <div className="coupon-actions">
           {!isExpired() && (
-            <button
-              onClick={() => onToggle(coupon.id)}
-              className={`action-btn toggle-btn ${coupon.status}`}
-              title={coupon.status === 'active' ? '비활성화' : '활성화'}
-            >
-              {coupon.status === 'active' ? '⏸️' : '▶️'}
-            </button>
+            <>
+              <button
+                onClick={() => onEdit(coupon)}
+                className="action-btn edit-btn"
+                title="쿠폰 수정"
+              >
+                수정
+              </button>
+              <button
+                onClick={() => onStatusChange(coupon)}
+                className="action-btn status-btn"
+                title="상태 변경"
+              >
+                상태
+              </button>
+            </>
           )}
           <button
             onClick={() => onDelete(coupon.id)}
@@ -86,7 +97,9 @@ export default function CouponItem({ coupon, onDelete, onToggle }) {
           <div className="detail-item">
             <span className="detail-label">최소 주문</span>
             <span className="detail-value">
-              {coupon.minOrderAmount ? `₩${coupon.minOrderAmount.toLocaleString()}` : '없음'}
+              {(coupon.minOrderAmount != null && Number(coupon.minOrderAmount) > 0)
+                ? `₩${Number(coupon.minOrderAmount).toLocaleString()}`
+                : '없음'}
             </span>
           </div>
 

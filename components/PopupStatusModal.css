@@ -1,0 +1,151 @@
+.popup-status-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(2px);
+}
+
+.popup-status-modal {
+  width: min(520px, 100%);
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+}
+
+.popup-status-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.popup-status-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.popup-status-modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.popup-status-modal-close:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.popup-status-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.popup-status-modal-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.popup-status-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.popup-status-option {
+  display: grid;
+  grid-template-columns: 18px 70px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.popup-status-option:has(input:checked) {
+  border-color: #ea580c;
+  background: #fff7ed;
+}
+
+.popup-status-option-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.popup-status-option-description {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.popup-status-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.popup-status-cancel-btn,
+.popup-status-save-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.popup-status-cancel-btn {
+  border-color: #e2e8f0;
+  background: #fff;
+  color: #475569;
+}
+
+.popup-status-cancel-btn:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.popup-status-save-btn {
+  background: #ea580c;
+  color: #fff;
+}
+
+.popup-status-save-btn:hover:not(:disabled) {
+  background: #c2410c;
+}
+
+.popup-status-cancel-btn:disabled,
+.popup-status-save-btn:disabled,
+.popup-status-modal-close:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .popup-status-modal {
+    width: 100%;
+  }
+
+  .popup-status-option {
+    grid-template-columns: 18px 56px 1fr;
+  }
+}

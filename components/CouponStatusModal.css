@@ -1,0 +1,158 @@
+.coupon-status-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(2px);
+}
+
+.coupon-status-modal {
+  width: min(520px, 100%);
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+}
+
+.coupon-status-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.coupon-status-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.coupon-status-modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.coupon-status-modal-close:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.coupon-status-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.coupon-status-modal-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.coupon-status-modal-code {
+  margin: -6px 0 0 0;
+  font-size: 12px;
+  color: #64748b;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.coupon-status-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.coupon-status-option {
+  display: grid;
+  grid-template-columns: 18px 64px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.coupon-status-option:has(input:checked) {
+  border-color: #ea580c;
+  background: #fff7ed;
+}
+
+.coupon-status-option-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.coupon-status-option-description {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.coupon-status-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.coupon-status-cancel-btn,
+.coupon-status-save-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.coupon-status-cancel-btn {
+  border-color: #e2e8f0;
+  background: #fff;
+  color: #475569;
+}
+
+.coupon-status-cancel-btn:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.coupon-status-save-btn {
+  background: #ea580c;
+  color: #fff;
+}
+
+.coupon-status-save-btn:hover:not(:disabled) {
+  background: #c2410c;
+}
+
+.coupon-status-cancel-btn:disabled,
+.coupon-status-save-btn:disabled,
+.coupon-status-modal-close:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .coupon-status-modal {
+    width: 100%;
+  }
+
+  .coupon-status-option {
+    grid-template-columns: 18px 56px 1fr;
+  }
+}

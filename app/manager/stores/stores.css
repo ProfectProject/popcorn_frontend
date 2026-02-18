@@ -144,8 +144,8 @@
   justify-content: center;
 }
 
-.fixed-100 {
-  width: 100px;
+.fixed-170 {
+  width: 170px;
   flex-shrink: 0;
   justify-content: flex-end;
 }
@@ -202,6 +202,26 @@
   color: #ea580c;
 }
 
+.status-badge.suspended {
+  background: #fef3e2;
+  color: #ea580c;
+}
+
+.status-badge.draft {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.status-badge.pending {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.status-badge.hidden {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .status-badge.closed {
   background: #f3f4f6;
   color: #6b7280;
@@ -233,12 +253,35 @@
   transform: scale(1.1);
 }
 
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn:disabled:hover {
+  transform: none;
+}
+
 .edit-btn:hover {
   background: #dbeafe;
 }
 
 .delete-btn:hover {
   background: #fee2e2;
+}
+
+.status-action-btn {
+  width: auto;
+  min-width: 44px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-action-btn:hover {
+  background: #dbeafe;
 }
 
 /* 모달 스타일 (재사용) */
@@ -406,7 +449,7 @@
   }
 
   .fixed-150,
-  .fixed-100,
+  .fixed-170,
   .fixed-200 {
     width: 100%;
     flex-shrink: 1;

@@ -4,6 +4,15 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../../../../components/Sidebar';
 import './popup-detail.css';
+import {
+  clearManagerSession,
+  getManagerToken,
+  getManagerUser,
+  getPopupDetail,
+  listGoods,
+  mapPopupDetailToUi,
+  setSelectedPopupId
+} from '../../../../lib/managerApi';
 
 export default function PopupDetailPage({ params }) {
   const router = useRouter();
@@ -11,76 +20,58 @@ export default function PopupDetailPage({ params }) {
     name: '박매니저',
     email: 'manager@popcorn.kr'
   });
-
   const [popup, setPopup] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
   const [settings, setSettings] = useState({
     autoNotification: true,
     emailAlerts: false
   });
 
-  // 팝업 데이터 (팝업 관리 페이지와 동일한 데이터)
-  const allPopups = [
-    {
-      id: 1,
-      name: '여름 시즌 팝업',
-      location: '서울시 강남구 테헤란로 123',
-      startDate: '2024-06-01',
-      endDate: '2024-08-31',
-      status: 'active',
-      totalSales: 4200000,
-      dailyVisitors: 150,
-      productCount: 8,
-      image: '🌞',
-      color: '#ea580c',
-      description: '여름 시즌을 맞이하여 특별히 기획된 팝업 스토어입니다.',
-      manager: '김매니저',
-      phone: '010-1234-5678'
-    },
-    {
-      id: 2,
-      name: '대학교 축제 팝업',
-      location: '서울시 관악구 서울대학교',
-      startDate: '2024-05-15',
-      endDate: '2024-05-17',
-      status: 'completed',
-      totalSales: 890000,
-      dailyVisitors: 200,
-      productCount: 6,
-      image: '🎓',
-      color: '#3b82f6',
-      description: '대학교 축제 기간 동안 운영된 팝업 스토어입니다.',
-      manager: '이매니저',
-      phone: '010-2345-6789'
-    },
-    {
-      id: 3,
-      name: '쇼핑몰 팝업',
-      location: '경기도 성남시 분당구 정자동',
-      startDate: '2024-07-01',
-      endDate: '2024-07-15',
-      status: 'planned',
-      totalSales: 0,
-      dailyVisitors: 0,
-      productCount: 10,
-      image: '🛍️',
-      color: '#8b5cf6',
-      description: '쇼핑몰에서 진행되는 특별 팝업 이벤트입니다.',
-      manager: '박매니저',
-      phone: '010-3456-7890'
-    }
-  ];
-
   useEffect(() => {
-    const popupId = parseInt(params.id);
-    const foundPopup = allPopups.find(p => p.id === popupId);
-    setPopup(foundPopup);
-  }, [params.id]);
+    const token = getManagerToken();
+    if (!token) {
+      router.replace('/manager');
+      return;
+    }
+
+    const savedUser = getManagerUser();
+    if (savedUser) {
+      setUser({
+        name: savedUser.name || savedUser.email || '매니저',
+        email: savedUser.email || 'manager@popcorn.kr'
+      });
+    }
+
+    const loadPopupDetail = async () => {
+      setIsLoading(true);
+      setError('');
+      setSelectedPopupId(params.id);
+
+      try {
+        const detail = await getPopupDetail(params.id);
+
+        let productCount = 0;
+        try {
+          const goods = await listGoods(params.id);
+          productCount = goods?.items?.length || 0;
+        } catch (_goodsError) {
+          productCount = 0;
+        }
+
+        setPopup(mapPopupDetailToUi(detail, { productCount }));
+      } catch (loadError) {
+        setError(loadError?.message || '팝업 정보를 불러오지 못했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPopupDetail();
+  }, [params.id, router]);
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('manager_token');
-      localStorage.removeItem('manager_user');
-    }
+    clearManagerSession();
     router.push('/manager');
   };
 
@@ -95,12 +86,23 @@ export default function PopupDetailPage({ params }) {
     }));
   };
 
-  if (!popup) {
+  if (isLoading) {
     return (
       <div className="popup-detail-container">
         <Sidebar user={user} onLogout={handleLogout} />
         <main className="popup-detail-main">
           <div className="loading">팝업 정보를 불러오는 중...</div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!popup) {
+    return (
+      <div className="popup-detail-container">
+        <Sidebar user={user} onLogout={handleLogout} />
+        <main className="popup-detail-main">
+          <div className="loading">{error || '팝업 정보를 찾을 수 없습니다.'}</div>
         </main>
       </div>
     );

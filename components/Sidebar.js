@@ -17,7 +17,6 @@ const menuItems = [
     title: '매니저 관리',
     items: [
       { icon: '🏪', label: '팝업 관리', href: '/manager/popups' },
-      { icon: '👥', label: '고객 관리', href: '/manager/customers' },
       { icon: '🎫', label: '쿠폰 관리', href: '/manager/coupons' }
     ]
   },

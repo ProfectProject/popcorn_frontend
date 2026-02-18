@@ -1,10 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../../../components/Sidebar';
 import StoreAddModal from '../../../components/StoreAddModal';
+import StoreStatusModal from '../../../components/StoreStatusModal';
 import './stores.css';
+import {
+  clearManagerSession,
+  createStore,
+  deleteStore,
+  getManagerToken,
+  getManagerUser,
+  listStores,
+  mapStoreToUi,
+  updateStoreStatus as updateStoreStatusApi,
+  updateStore
+} from '../../../lib/managerApi';
 
 export default function StoresPage() {
   const router = useRouter();
@@ -12,66 +24,88 @@ export default function StoresPage() {
     name: '박매니저',
     email: 'manager@popcorn.kr'
   });
-
-  // 스토어 데이터
-  const [stores, setStores] = useState([
-    {
-      id: 1,
-      name: '강남 플래그십 스토어',
-      location: '서울시 강남구 테헤란로 123',
-      manager: '김매니저',
-      phone: '010-1234-5678',
-      status: 'active',
-      openDate: '2024-01-15',
-      area: '120㎡',
-      monthlyRent: 5000000,
-      currentPopups: 2
-    },
-    {
-      id: 2,
-      name: '홍대 트렌드 스토어',
-      location: '서울시 마포구 홍익로 45',
-      manager: '이매니저',
-      phone: '010-2345-6789',
-      status: 'maintenance',
-      openDate: '2024-02-01',
-      area: '80㎡',
-      monthlyRent: 3500000,
-      currentPopups: 0
-    },
-    {
-      id: 3,
-      name: '명동 관광 스토어',
-      location: '서울시 중구 명동길 67',
-      manager: '박매니저',
-      phone: '010-3456-7890',
-      status: 'active',
-      openDate: '2024-01-10',
-      area: '150㎡',
-      monthlyRent: 7000000,
-      currentPopups: 3
-    }
-  ]);
-
+  const [stores, setStores] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingStore, setEditingStore] = useState(null);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusTargetStore, setStatusTargetStore] = useState(null);
+
+  useEffect(() => {
+    const token = getManagerToken();
+    if (!token) {
+      router.replace('/manager');
+      return;
+    }
+
+    const savedUser = getManagerUser();
+    if (savedUser) {
+      setUser({
+        name: savedUser.name || savedUser.email || '매니저',
+        email: savedUser.email || 'manager@popcorn.kr'
+      });
+    }
+
+    const loadStoresData = async () => {
+      setError('');
+      setIsLoading(true);
+
+      try {
+        const storeList = await listStores();
+        setStores((prev) => {
+          const prevById = new Map(prev.map((item) => [item.id, item]));
+          return storeList.map((item) => mapStoreToUi(item, prevById.get(item.id)));
+        });
+      } catch (loadError) {
+        setError(loadError?.message || '스토어 목록을 불러오지 못했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadStoresData();
+  }, [router]);
 
   const handleAddStore = () => {
     setShowAddModal(true);
   };
 
-  const handleCreateStore = (newStore) => {
-    setStores(prev => [...prev, newStore]);
-    setShowAddModal(false);
+  const handleCreateStore = async (newStore) => {
+    setError('');
+    setIsSaving(true);
+
+    try {
+      const created = await createStore(newStore.name.trim());
+      setStores(prev => [mapStoreToUi(created, newStore), ...prev]);
+      setShowAddModal(false);
+    } catch (saveError) {
+      setError(saveError?.message || '스토어 생성에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleUpdateStore = (updatedStore) => {
-    setStores(prev => prev.map(store =>
-      store.id === updatedStore.id ? updatedStore : store
-    ));
-    setShowEditModal(false);
-    setEditingStore(null);
+  const handleUpdateStore = async (updatedStore) => {
+    setError('');
+    setIsSaving(true);
+
+    try {
+      const apiUpdated = await updateStore(updatedStore.id, updatedStore.name.trim());
+      setStores(prev => prev.map((store) => (
+        store.id === updatedStore.id
+          ? mapStoreToUi(apiUpdated, { ...store, ...updatedStore })
+          : store
+      )));
+      setShowEditModal(false);
+      setEditingStore(null);
+    } catch (saveError) {
+      setError(saveError?.message || '스토어 수정에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEditStore = (store) => {
@@ -79,24 +113,62 @@ export default function StoresPage() {
     setShowEditModal(true);
   };
 
-  const handleDeleteStore = (storeId) => {
+  const handleDeleteStore = async (storeId) => {
     if (window.confirm('스토어를 삭제하시겠습니까?')) {
-      setStores(prev => prev.filter(store => store.id !== storeId));
+      setError('');
+      try {
+        await deleteStore(storeId);
+        setStores(prev => prev.filter(store => store.id !== storeId));
+      } catch (deleteError) {
+        setError(deleteError?.message || '스토어 삭제에 실패했습니다.');
+      }
+    }
+  };
+
+  const handleOpenStatusModal = (store) => {
+    setStatusTargetStore(store);
+    setShowStatusModal(true);
+  };
+
+  const closeStatusModal = () => {
+    setShowStatusModal(false);
+    setStatusTargetStore(null);
+  };
+
+  const handleUpdateStoreStatus = async (nextStatus) => {
+    if (!statusTargetStore?.id) return;
+
+    setError('');
+    setIsSaving(true);
+
+    try {
+      await updateStoreStatusApi(statusTargetStore.id, nextStatus);
+      const storeList = await listStores();
+      setStores((prev) => {
+        const prevById = new Map(prev.map((item) => [item.id, item]));
+        return storeList.map((item) => mapStoreToUi(item, prevById.get(item.id)));
+      });
+      closeStatusModal();
+    } catch (statusError) {
+      setError(statusError?.message || '스토어 상태 변경에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('manager_token');
-      localStorage.removeItem('manager_user');
-    }
+    clearManagerSession();
     router.push('/manager');
   };
 
   const getStatusText = (status) => {
     switch (status) {
       case 'active': return '운영중';
-      case 'maintenance': return '정비중';
+      case 'maintenance': return '일시중단';
+      case 'suspended': return '일시중단';
+      case 'draft': return '임시저장';
+      case 'pending': return '승인대기';
+      case 'hidden': return '숨김';
       case 'closed': return '폐점';
       default: return '알 수 없음';
     }
@@ -115,13 +187,18 @@ export default function StoresPage() {
           </div>
         </header>
 
+        {error && <div className="error-alert">{error}</div>}
+        {isLoading && <div className="loading">스토어 정보를 불러오는 중...</div>}
+
         {/* 스토어 목록 */}
-        <section className="stores-content">
+        {!isLoading && (
+          <section className="stores-content">
           <div className="table-header">
             <h2 className="table-title">등록된 스토어</h2>
             <button
               onClick={handleAddStore}
               className="add-store-btn"
+              disabled={isSaving}
             >
               스토어 추가
             </button>
@@ -132,7 +209,7 @@ export default function StoresPage() {
               <div className="table-cell head-cell flex-1">스토어 정보</div>
               <div className="table-cell head-cell fixed-200">위치</div>
               <div className="table-cell head-cell fixed-150">상태</div>
-              <div className="table-cell head-cell fixed-100">액션</div>
+              <div className="table-cell head-cell fixed-170">액션</div>
             </div>
 
             <div className="table-body">
@@ -142,7 +219,7 @@ export default function StoresPage() {
                     <div className="store-info">
                       <div className="store-name">{store.name}</div>
                       <div className="store-details">
-                        {store.area} • 담당: {store.manager} • 팝업 {store.currentPopups}개
+                        담당: {store.manager} • 팝업 {store.currentPopups}개
                       </div>
                     </div>
                   </div>
@@ -150,14 +227,26 @@ export default function StoresPage() {
                     <div className="store-location">{store.location}</div>
                   </div>
                   <div className="table-cell body-cell fixed-150">
-                    <span className={`status-badge ${store.status}`}>
+                    <span
+                      className={`status-badge ${store.status}`}
+                      title={store.rawPublishStatus ? `publishStatus: ${store.rawPublishStatus}` : ''}
+                    >
                       {getStatusText(store.status)}
                     </span>
                   </div>
-                  <div className="table-cell body-cell fixed-100">
+                  <div className="table-cell body-cell fixed-170">
                     <div className="store-actions">
                       <button
+                        className="action-btn status-action-btn"
+                        disabled={isSaving}
+                        onClick={() => handleOpenStatusModal(store)}
+                        title="상태 변경"
+                      >
+                        상태
+                      </button>
+                      <button
                         className="action-btn edit-btn"
+                        disabled={isSaving}
                         onClick={() => handleEditStore(store)}
                         title="편집"
                       >
@@ -165,6 +254,7 @@ export default function StoresPage() {
                       </button>
                       <button
                         className="action-btn delete-btn"
+                        disabled={isSaving}
                         onClick={() => handleDeleteStore(store.id)}
                         title="삭제"
                       >
@@ -176,7 +266,8 @@ export default function StoresPage() {
               ))}
             </div>
           </div>
-        </section>
+          </section>
+        )}
 
         {/* 스토어 추가 모달 */}
         {showAddModal && (
@@ -195,6 +286,15 @@ export default function StoresPage() {
               setEditingStore(null);
             }}
             editData={editingStore}
+          />
+        )}
+
+        {showStatusModal && (
+          <StoreStatusModal
+            store={statusTargetStore}
+            isSaving={isSaving}
+            onSave={handleUpdateStoreStatus}
+            onCancel={closeStatusModal}
           />
         )}
       </main>

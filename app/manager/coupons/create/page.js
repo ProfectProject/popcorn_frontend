@@ -1,9 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../../../../components/Sidebar';
 import './create-coupon.css';
+import {
+  activateCoupon,
+  clearManagerSession,
+  createCoupon,
+  getManagerToken,
+  getManagerUser
+} from '../../../../lib/managerApi';
 
 export default function CreateCouponPage() {
   const router = useRouter();
@@ -28,6 +35,23 @@ export default function CreateCouponPage() {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  useEffect(() => {
+    const token = getManagerToken();
+    if (!token) {
+      router.replace('/manager');
+      return;
+    }
+
+    const savedUser = getManagerUser();
+    if (savedUser) {
+      setUser({
+        name: savedUser.name || savedUser.email || '매니저',
+        email: savedUser.email || 'manager@popcorn.kr'
+      });
+    }
+  }, [router]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -39,6 +63,10 @@ export default function CreateCouponPage() {
     // 에러 제거
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+
+    if (submitError) {
+      setSubmitError('');
     }
   };
 
@@ -95,17 +123,42 @@ export default function CreateCouponPage() {
     }
 
     setIsSubmitting(true);
+    setSubmitError('');
 
     try {
-      console.log('쿠폰 생성:', formData);
+      const targetTypeMap = {
+        all: 'ALL_USERS',
+        new_customers: 'NEW_USERS',
+        specific: 'VIP_USERS'
+      };
 
-      // TODO: API 호출
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const created = await createCoupon({
+        name: formData.name,
+        description: formData.description || `${formData.code} 쿠폰`,
+        discountType: formData.discountType,
+        discountValue: Number(formData.discountValue),
+        minOrderAmount: (formData.minOrderAmount && Number(formData.minOrderAmount) > 0)
+          ? Number(formData.minOrderAmount)
+          : null,
+        maxDiscountAmount: null,
+        usageLimit: formData.usageLimit ? Number(formData.usageLimit) : null,
+        validFrom: formData.validFrom,
+        validUntil: formData.validUntil,
+        targetType: targetTypeMap[formData.targetType] || 'ALL_USERS'
+      });
+
+      if (formData.isActive && created?.id) {
+        try {
+          await activateCoupon(created.id);
+        } catch (activateError) {
+          console.error('쿠폰 즉시 활성화 실패:', activateError);
+        }
+      }
 
       // 성공 시 쿠폰 관리 페이지로 이동
       router.push('/manager/coupons');
     } catch (error) {
-      console.error('쿠폰 생성 실패:', error);
+      setSubmitError(error?.message || '쿠폰 생성에 실패했습니다.');
     } finally {
       setIsSubmitting(false);
     }
@@ -116,7 +169,8 @@ export default function CreateCouponPage() {
   };
 
   const handleLogout = () => {
-    console.log('로그아웃');
+    clearManagerSession();
+    router.push('/manager');
   };
 
   return (
@@ -139,6 +193,10 @@ export default function CreateCouponPage() {
         <section className="form-section">
           <div className="form-container">
             <form onSubmit={handleSubmit} className="coupon-form">
+              {submitError && (
+                <div className="error-alert">{submitError}</div>
+              )}
+
               {/* 기본 정보 */}
               <div className="form-group">
                 <h3 className="group-title">기본 정보</h3>

@@ -39,6 +39,7 @@ export default function OrderItem({ order, onStatusChange, onViewDetails }) {
   };
 
   const handleCall = () => {
+    if (!order.phone || order.phone === '-') return;
     window.open(`tel:${order.phone}`);
   };
 

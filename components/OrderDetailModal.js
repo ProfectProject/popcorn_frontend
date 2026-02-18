@@ -38,6 +38,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange }) {
   };
 
   const handleCall = () => {
+    if (!order.phone || order.phone === '-') return;
     window.open(`tel:${order.phone}`);
   };
 
