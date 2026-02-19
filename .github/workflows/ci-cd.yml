@@ -160,8 +160,9 @@ jobs:
         context: .
         file: ./Dockerfile
         push: true
-        platforms: linux/amd64
         tags: ${{ steps.image-tags.outputs.tags }}
+        provenance: false
+        sbom: false
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -178,7 +179,7 @@ jobs:
         COMMIT="${GITHUB_SHA}"
         MESSAGE=$(cat <<EOF
         {
-          "content": "✅ Deploy SUCCESS by.${AUTHOR}\n👤 Author: ${AUTHOR}\nService: ${SERVICE}\nRepo: ${REPO}\nImage: ${IMAGE}\nRun: #${RUN_NO}\nCommit: ${COMMIT}"
+          "content": "✅ Deploy SUCCESS by.${AUTHOR}\n- 👤 Author: ${AUTHOR}\n- Service: ${SERVICE}\n- Repo: ${REPO}\n- Image: ${IMAGE}\n- Run: #${RUN_NO}\n- Commit: ${COMMIT}"
         }
         EOF
         )
