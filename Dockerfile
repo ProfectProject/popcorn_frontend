@@ -1,14 +1,20 @@
 # Multi-stage build for Next.js app
 FROM node:20-alpine AS base
-
-# Install dependencies only when needed
-FROM base AS deps
 RUN apk add --no-cache libc6-compat
+
+# Install all dependencies for build (including devDependencies)
+FROM base AS deps
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
+
+# Install production-only dependencies for runtime image
+FROM base AS prod-deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -32,14 +38,14 @@ COPY --from=builder /app/public ./public
 
 # Copy app build output and production deps
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
 USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
 CMD ["npm", "run", "start"]
