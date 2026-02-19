@@ -1,6 +1,9 @@
 {
   "name": "popcorn-frontend",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev -p 3000",
     "dev:fresh": "if lsof -ti:3000 >/dev/null 2>&1; then lsof -ti:3000 | xargs kill -9; fi; rm -rf .next-dev .next && next dev -p 3000",
