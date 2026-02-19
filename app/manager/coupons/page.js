@@ -31,6 +31,7 @@ import {
 const AUTO_COUPON_CREATED_DATE_KEY = 'manager_auto_coupon_created_date';
 const AUTO_COUPON_EXTRA_CREATED_DATE_KEY = 'manager_auto_coupon_extra_created_date';
 const SAMPLE_COUPON_SEEDED_KEY = 'manager_coupon_seeded_for_stats_v1';
+const COUPONS_PAGE_SIZE = 10;
 
 export default function CouponsPage() {
   const router = useRouter();
@@ -51,6 +52,7 @@ export default function CouponsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTargetCoupon, setEditTargetCoupon] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showAutoResultModal, setShowAutoResultModal] = useState(false);
   const [autoResultTitle, setAutoResultTitle] = useState('');
   const [autoResultMessage, setAutoResultMessage] = useState('');
@@ -101,6 +103,9 @@ export default function CouponsPage() {
 
     try {
       const couponList = await listCoupons();
+      if (!Array.isArray(couponList)) {
+        throw new Error('쿠폰 응답 형식이 올바르지 않습니다.');
+      }
       const mappedCoupons = couponList.map(mapCouponToUi);
       setCoupons(mappedCoupons);
       return mappedCoupons;
@@ -122,6 +127,7 @@ export default function CouponsPage() {
     window.localStorage.setItem(SAMPLE_COUPON_SEEDED_KEY, '1');
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const seedCouponsForStats = async () => {
     const now = new Date();
     const start = formatDateInput(now);
@@ -159,6 +165,7 @@ export default function CouponsPage() {
 
   const getTodayKey = () => new Date().toISOString().split('T')[0];
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const shouldAutoCreateCoupon = () => {
     if (typeof window === 'undefined') return false;
     const createdDate = window.localStorage.getItem(AUTO_COUPON_CREATED_DATE_KEY);
@@ -170,6 +177,7 @@ export default function CouponsPage() {
     window.localStorage.setItem(AUTO_COUPON_CREATED_DATE_KEY, getTodayKey());
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const canCreateExtraCouponToday = () => {
     if (typeof window === 'undefined') return false;
     const createdDate = window.localStorage.getItem(AUTO_COUPON_EXTRA_CREATED_DATE_KEY);
@@ -228,7 +236,7 @@ export default function CouponsPage() {
     };
 
     initialize();
-  }, [router]);
+  }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const statsWithDiscountBenefit = useMemo(() => {
     const activeCount = coupons.filter((coupon) => coupon.status === 'active').length;
@@ -300,7 +308,8 @@ export default function CouponsPage() {
 
   const formatDateInput = (date) => date.toISOString().split('T')[0];
 
-  const handleAutoCouponCreate = async ({ silent = false, autoTriggered = false, extraOnce = false } = {}) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  async function handleAutoCouponCreate({ silent = false, autoTriggered = false, extraOnce = false } = {}) {
     if (!silent) {
       setError('');
     }
@@ -352,7 +361,7 @@ export default function CouponsPage() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }
 
   const handleCreateExtraOnce = async () => {
     if (!canCreateExtraOnce || isSaving) return;
@@ -447,6 +456,23 @@ export default function CouponsPage() {
     ? coupons
     : coupons.filter(coupon => coupon.status === selectedStatus);
 
+  const totalPages = Math.max(1, Math.ceil(filteredCoupons.length / COUPONS_PAGE_SIZE));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedStatus, coupons.length]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const pagedCoupons = useMemo(() => {
+    const start = (currentPage - 1) * COUPONS_PAGE_SIZE;
+    return filteredCoupons.slice(start, start + COUPONS_PAGE_SIZE);
+  }, [filteredCoupons, currentPage]);
+
   const handleLogout = () => {
     clearManagerSession();
     router.push('/manager');
@@ -520,11 +546,35 @@ export default function CouponsPage() {
           </div>
 
           <CouponList
-            coupons={filteredCoupons}
+            coupons={pagedCoupons}
             onDelete={handleDeleteCoupon}
             onStatusChange={handleOpenStatusModal}
             onEdit={handleOpenEditModal}
           />
+
+          {filteredCoupons.length > 0 && (
+            <div className="pagination-controls">
+              <button
+                type="button"
+                className="pagination-btn"
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                이전
+              </button>
+              <span className="pagination-info">
+                {currentPage} / {totalPages} 페이지
+              </span>
+              <button
+                type="button"
+                className="pagination-btn"
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                다음
+              </button>
+            </div>
+          )}
           </section>
         )}
 

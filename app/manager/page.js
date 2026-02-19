@@ -40,6 +40,7 @@ export default function ManagerLogin() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const loginWithCredentials = async (credentials) => {
     const { user } = await loginManager(credentials);
     validateManagerRole(user);
@@ -89,7 +90,7 @@ export default function ManagerLogin() {
         setIsLoading(false);
       }
     })();
-  }, [router]);
+  }, [router, loginWithCredentials]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -137,7 +138,6 @@ export default function ManagerLogin() {
           </div>
           <h1 className="brand-title">팝콘 팝업 스토어</h1>
           <p className="brand-description">
-            프리미엄 수제 팝콘<br />
             팝업 스토어 관리 시스템
           </p>
         </div>

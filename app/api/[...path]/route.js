@@ -7,15 +7,21 @@ const API_BASE_URL = normalizeBaseUrl(
   'http://localhost:8080'
 );
 const STORE_API_BASE_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_STORE_API_BASE_URL || process.env.STORE_API_BASE_URL,
+  process.env.NEXT_PUBLIC_STORE_API_BASE_URL
+    || process.env.STORE_API_BASE_URL
+    || process.env.NEXT_PUBLIC_API_BASE_URL,
   API_BASE_URL
 );
 const ORDERQUERY_API_BASE_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_ORDERQUERY_API_BASE_URL || process.env.ORDERQUERY_API_BASE_URL,
+  process.env.NEXT_PUBLIC_ORDERQUERY_API_BASE_URL
+    || process.env.ORDERQUERY_API_BASE_URL
+    || process.env.NEXT_PUBLIC_API_BASE_URL,
   API_BASE_URL
 );
 const PAYMENT_API_BASE_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_PAYMENT_API_BASE_URL || process.env.PAYMENT_API_BASE_URL,
+  process.env.NEXT_PUBLIC_PAYMENT_API_BASE_URL
+    || process.env.PAYMENT_API_BASE_URL
+    || process.env.NEXT_PUBLIC_API_BASE_URL,
   API_BASE_URL
 );
 
@@ -35,13 +41,24 @@ function resolveTargetBaseUrl(path) {
   return API_BASE_URL;
 }
 
-function buildTargetUrl(path, requestUrl) {
+function buildTargetUrls(path, requestUrl) {
   const joinedPath = Array.isArray(path) ? path.join('/') : '';
   const incoming = new URL(requestUrl);
   const baseUrl = resolveTargetBaseUrl(path);
-  const target = new URL(buildApiUrl(baseUrl, joinedPath));
-  target.search = incoming.search;
-  return target.toString();
+  const candidates = [baseUrl];
+
+  // In some runtimes (e.g. containerized Next server), localhost may not point
+  // to the host where upstream APIs are exposed.
+  if (/^https?:\/\/localhost(?::\d+)?$/i.test(baseUrl)) {
+    candidates.push(baseUrl.replace('localhost', '127.0.0.1'));
+    candidates.push(baseUrl.replace('localhost', 'host.docker.internal'));
+  }
+
+  return [...new Set(candidates)].map((candidateBaseUrl) => {
+    const target = new URL(buildApiUrl(candidateBaseUrl, joinedPath));
+    target.search = incoming.search;
+    return target.toString();
+  });
 }
 
 function createForwardHeaders(requestHeaders) {
@@ -73,18 +90,28 @@ function sanitizeResponseHeaders(upstreamHeaders) {
 async function forward(request, context) {
   try {
     const resolvedParams = context?.params ? (await context.params) : {};
-    const targetUrl = buildTargetUrl(resolvedParams?.path, request.url);
+    const targetUrls = buildTargetUrls(resolvedParams?.path, request.url);
     const method = request.method;
     const headers = createForwardHeaders(request.headers);
     const hasBody = !['GET', 'HEAD'].includes(method.toUpperCase());
     const body = hasBody ? await request.arrayBuffer() : undefined;
+    let upstream = null;
+    let lastError = null;
 
-    const upstream = await fetch(targetUrl, {
-      method,
-      headers,
-      body,
-      redirect: 'manual'
-    });
+    for (const targetUrl of targetUrls) {
+      try {
+        upstream = await fetch(targetUrl, {
+          method,
+          headers,
+          body,
+          redirect: 'manual'
+        });
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (!upstream) throw lastError || new Error('Upstream fetch failed');
 
     const responseBody = await upstream.arrayBuffer();
     return new Response(responseBody.byteLength > 0 ? responseBody : null, {

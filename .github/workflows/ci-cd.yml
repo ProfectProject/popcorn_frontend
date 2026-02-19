@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - develop
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - main
@@ -56,3 +58,68 @@ jobs:
         echo "🚀 배포 단계를 여기에 추가하세요"
         echo "예: SSH를 통한 서버 배포, Kubernetes 배포 등"
         # 실제 배포 스크립트를 여기에 추가
+
+  ecr-push:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v'))
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ECR_REPOSITORY: goorm-popcorn-front
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Compute image tags
+      id: image-tags
+      run: |
+        set -eu
+        SHA_SHORT="${GITHUB_SHA::8}"
+        REF="${GITHUB_REF}"
+        REF_NAME="${GITHUB_REF_NAME}"
+        REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+        REPO="${ECR_REPOSITORY}"
+
+        TAGS=""
+        if [ "$REF" = "refs/heads/main" ]; then
+          TAGS="${REGISTRY}/${REPO}:${SHA_SHORT}"$'\n'"${REGISTRY}/${REPO}:latest"
+        elif [ "$REF" = "refs/heads/develop" ]; then
+          TAGS="${REGISTRY}/${REPO}:dev-${SHA_SHORT}"$'\n'"${REGISTRY}/${REPO}:dev-latest"
+        elif [[ "$REF" == refs/tags/v* ]]; then
+          TAGS="${REGISTRY}/${REPO}:${SHA_SHORT}"$'\n'"${REGISTRY}/${REPO}:${REF_NAME}"$'\n'"${REGISTRY}/${REPO}:latest"
+        else
+          echo "Unsupported ref: $REF"
+          exit 1
+        fi
+
+        {
+          echo "tags<<EOF"
+          echo "$TAGS"
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Build and Push Docker image to ECR
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        platforms: linux/amd64
+        tags: ${{ steps.image-tags.outputs.tags }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

@@ -92,6 +92,7 @@ function PaymentsContent({ initialToken }) {
     }
   }, [scriptReady, clientKey, paymentInfo]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const onPay = async () => {
     if (!paymentInfo) {
       setError("결제 정보가 없습니다.");
@@ -145,7 +146,7 @@ function PaymentsContent({ initialToken }) {
       window.sessionStorage.setItem(storageKey, "1");
     }
     onPay();
-  }, [scriptReady, paymentInfo]);
+  }, [scriptReady, paymentInfo, onPay, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <main>

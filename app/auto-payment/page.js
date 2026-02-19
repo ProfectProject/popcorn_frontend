@@ -18,8 +18,7 @@ function AutoPaymentContent() {
   const router = useRouter();
 
   const token = searchParams.get('token'); // 🔐 암호화된 토큰
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
-  const paymentApiBase = process.env.NEXT_PUBLIC_PAYMENT_API_BASE_URL || "http://localhost:8080";
+  const paymentApiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "test_ck_AQ92ymxN34LKgMYlpPZy3ajRKXvd";
 
   // 🔐 토큰 디코딩으로 결제 정보 가져오기
@@ -57,7 +56,7 @@ function AutoPaymentContent() {
     };
 
     fetchPaymentInfo();
-  }, [token, apiBase]);
+  }, [token, paymentApiBase]);
 
   // 🚀 페이지 로드 즉시 결제창 자동 실행
   useEffect(() => {
@@ -65,8 +64,9 @@ function AutoPaymentContent() {
 
     // 🎯 바로 결제창 실행!
     startPayment();
-  }, [scriptReady, paymentStarted, loading, paymentInfo]);
+  }, [scriptReady, paymentStarted, loading, paymentInfo, startPayment]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const startPayment = async () => {
     if (paymentStarted || !paymentInfo || paymentExecuted.current) return;
 

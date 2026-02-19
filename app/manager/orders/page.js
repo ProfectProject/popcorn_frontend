@@ -19,6 +19,57 @@ import {
   listStores
 } from '../../../lib/managerApi';
 
+function extractDashboardOrderItems(payload) {
+  if (Array.isArray(payload)) return payload;
+
+  const directKeys = ['orders', 'items', 'content', 'results', 'orderItems', 'orderSnapshots'];
+  for (const key of directKeys) {
+    if (Array.isArray(payload?.[key])) return payload[key];
+  }
+
+  const data = payload?.data;
+  if (data && typeof data === 'object') {
+    for (const key of directKeys) {
+      if (Array.isArray(data?.[key])) return data[key];
+    }
+  }
+
+  return [];
+}
+
+function extractPageMeta(payload, fallbackPage, fallbackSize, itemCount) {
+  const pageInfo = payload?.pageInfo || payload?.pagination || payload?.page || payload?.meta || {};
+  const totalElements = Number(
+    pageInfo?.totalElements
+    ?? pageInfo?.totalCount
+    ?? pageInfo?.total_count
+    ?? payload?.totalElements
+    ?? payload?.totalCount
+    ?? payload?.total_count
+    ?? itemCount
+  );
+  const totalPages = Number(
+    pageInfo?.totalPages
+    ?? pageInfo?.total_page
+    ?? payload?.totalPages
+    ?? payload?.total_pages
+    ?? (Number.isFinite(totalElements) ? Math.max(1, Math.ceil(totalElements / fallbackSize)) : 1)
+  );
+  const currentPage = Number(
+    pageInfo?.page
+    ?? pageInfo?.currentPage
+    ?? pageInfo?.current_page
+    ?? payload?.page
+    ?? fallbackPage
+  );
+
+  return {
+    totalElements: Number.isFinite(totalElements) ? totalElements : itemCount,
+    totalPages: Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1,
+    currentPage: Number.isFinite(currentPage) ? currentPage : fallbackPage
+  };
+}
+
 export default function OrdersPage() {
   const router = useRouter();
   const [user, setUser] = useState({
@@ -35,6 +86,10 @@ export default function OrdersPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [serverTotalOrders, setServerTotalOrders] = useState(0);
+  const [serverTotalPages, setServerTotalPages] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     const token = getManagerToken();
@@ -82,20 +137,16 @@ export default function OrdersPage() {
       setIsLoading(true);
 
       try {
-        let popupList = [];
         if (selectedStoreId === 'all') {
-          const popupResults = await Promise.all(
-            stores.map((store) => listPopups(store.id, { page: 1, size: 100 }))
-          );
-          const popupMap = new Map();
-          popupResults.flat().forEach((popup) => {
-            if (!popup?.popupId || popupMap.has(popup.popupId)) return;
-            popupMap.set(popup.popupId, popup);
-          });
-          popupList = [...popupMap.values()];
-        } else {
-          popupList = await listPopups(selectedStoreId, { page: 1, size: 100 });
+          // 전체 스토어에서는 팝업 목록 대량 조회를 생략해서 초기 로딩을 빠르게 유지
+          setPopups([]);
+          if (selectedPopupId !== 'all') {
+            setSelectedPopupIdState('all');
+          }
+          return;
         }
+
+        const popupList = await listPopups(selectedStoreId, { page: 1, size: 100 });
         setPopups(popupList);
         if (!popupList.some((popup) => popup.popupId === selectedPopupId)) {
           setSelectedPopupIdState('all');
@@ -108,50 +159,61 @@ export default function OrdersPage() {
     };
 
     loadPopupsByStore();
-  }, [selectedStoreId, stores, selectedPopupId]);
+  }, [selectedStoreId, selectedPopupId]);
 
   useEffect(() => {
+    let canceled = false;
+
     const loadOrdersData = async () => {
       setError('');
       setIsLoading(true);
 
       try {
-        const pageSize = 100;
-        let page = 0;
-        let hasNext = true;
-        const allItems = [];
-
-        while (hasNext) {
-          const orderPage = await getDashboardOrders({
-            page,
-            size: pageSize,
-            sortBy: 'orderedAt',
-            sortDirection: 'desc'
-          });
-          const pageItems = orderPage?.orders || orderPage?.items || [];
-          allItems.push(...pageItems);
-          hasNext = Boolean(orderPage?.pageInfo?.hasNext);
-          page += 1;
-          if (page > 50) break;
-        }
-
-        let items = allItems;
+        const pageIndex = Math.max(0, currentPage - 1);
+        const orderPage = await getDashboardOrders({
+          page: pageIndex,
+          size: pageSize,
+          sortBy: 'orderedAt',
+          sortDirection: 'desc',
+          popupId: selectedPopupId === 'all' ? undefined : selectedPopupId
+        });
+        let items = extractDashboardOrderItems(orderPage);
 
         if (selectedStoreId !== 'all') {
-          items = items.filter((item) => String(item.storeId || '') === String(selectedStoreId));
+          items = items.filter((item) => (
+            String(item.storeId || item.store_id || item.store?.id || '') === String(selectedStoreId)
+          ));
         }
         if (selectedPopupId !== 'all') {
-          items = items.filter((item) => String(item.popupId || '') === String(selectedPopupId));
+          items = items.filter((item) => (
+            String(item.popupId || item.popup_id || item.popup?.id || '') === String(selectedPopupId)
+          ));
         }
 
-        setOrders(aggregateOrdersFromOrderItems(items));
+        const mappedOrders = aggregateOrdersFromOrderItems(items);
+        if (canceled) return;
+
+        // 1차 렌더는 즉시 표시
+        setOrders(mappedOrders);
+
+        const pageMeta = extractPageMeta(orderPage, pageIndex, pageSize, mappedOrders.length);
+        setServerTotalOrders(pageMeta.totalElements);
+        setServerTotalPages(pageMeta.totalPages);
       } catch (loadError) {
         // Fallback for legacy endpoint when a specific store/popup is selected.
         if (selectedStoreId !== 'all' && selectedPopupId !== 'all') {
           try {
-            const legacyPage = await listOrderItems(selectedStoreId, selectedPopupId, { page: 0, size: 200 });
+            const legacyPage = await listOrderItems(selectedStoreId, selectedPopupId, {
+              page: Math.max(0, currentPage - 1),
+              size: pageSize
+            });
             const legacyItems = legacyPage?.items || legacyPage?.orders || [];
-            setOrders(aggregateOrdersFromOrderItems(legacyItems));
+            if (canceled) return;
+
+            const mappedLegacyOrders = aggregateOrdersFromOrderItems(legacyItems);
+            setOrders(mappedLegacyOrders);
+            setServerTotalOrders(legacyItems.length);
+            setServerTotalPages(Math.max(1, Math.ceil(legacyItems.length / pageSize)));
             return;
           } catch (_legacyError) {
             // Continue to regular error handling below.
@@ -160,16 +222,24 @@ export default function OrdersPage() {
 
         if (isApiError(loadError, 404) || isApiError(loadError, 403)) {
           setOrders([]);
+          setServerTotalOrders(0);
+          setServerTotalPages(1);
         } else {
           setError(loadError?.message || '주문 데이터를 불러오지 못했습니다.');
         }
       } finally {
-        setIsLoading(false);
+        if (!canceled) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadOrdersData();
-  }, [selectedStoreId, selectedPopupId]);
+
+    return () => {
+      canceled = true;
+    };
+  }, [selectedStoreId, selectedPopupId, currentPage]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -223,6 +293,17 @@ export default function OrdersPage() {
   const filteredOrders = selectedStatus === 'all'
     ? orders
     : orders.filter(order => order.status === selectedStatus);
+  const totalPages = Math.max(1, serverTotalPages);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedStoreId, selectedPopupId, selectedStatus]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handleLogout = () => {
     clearManagerSession();
@@ -322,6 +403,45 @@ export default function OrdersPage() {
             onStatusChange={handleStatusChange}
             onViewDetails={handleViewDetails}
           />
+
+          {orders.length > 0 && (
+            <div className="orders-pagination">
+              <div className="orders-pagination-summary">
+                총 {serverTotalOrders}건 · {currentPage}/{totalPages} 페이지
+              </div>
+              <div className="orders-pagination-controls">
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  이전
+                </button>
+                {Array.from({ length: totalPages }, (_, index) => index + 1).slice(
+                  Math.max(0, currentPage - 3),
+                  Math.max(0, currentPage - 3) + 5
+                ).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    className={`pagination-btn ${currentPage === pageNum ? 'active' : ''}`}
+                    onClick={() => setCurrentPage(pageNum)}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  다음
+                </button>
+              </div>
+            </div>
+          )}
         </section>
           </>
         )}

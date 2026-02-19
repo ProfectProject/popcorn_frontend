@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../../../components/Sidebar';
 import StatCard from '../../../components/StatCard';
@@ -13,21 +13,37 @@ import {
   clearManagerSession,
   getManagerToken,
   getManagerUser,
-  getOrderSummary,
   getSelectedPopupId,
   getSelectedStoreId,
   isApiError,
-  listOrderItems,
-  listPopups,
-  listStores,
   setSelectedPopupId,
-  setSelectedStoreId,
-  // 📊 새로운 대시보드 API 함수들
-  getDashboardMain,
-  getDashboardHealth
+  setSelectedStoreId
 } from '../../../lib/managerApi';
 
+// 🚀 Next.js 16 캐시된 API 함수들
+import {
+  cachedGetDashboardMain as getDashboardMain,
+  cachedGetDashboardHealth as getDashboardHealth,
+  cachedListStores as listStores,
+  cachedListPopups as listPopups,
+  cachedListOrderItems as listOrderItems,
+  cachedGetOrderSummary as getOrderSummary
+} from '../../../lib/cachedManagerApi';
+
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function countRecentOrders(orderList, days = 7) {
+  const since = new Date();
+  since.setHours(0, 0, 0, 0);
+  since.setDate(since.getDate() - (days - 1));
+
+  return orderList.filter((order) => {
+    if (!order?.orderDate) return false;
+    const orderDate = new Date(order.orderDate);
+    if (Number.isNaN(orderDate.getTime())) return false;
+    return orderDate >= since;
+  }).length;
+}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -49,6 +65,37 @@ export default function Dashboard() {
   const [dashboardMain, setDashboardMain] = useState(null);
   const [isDashboardHealthy, setIsDashboardHealthy] = useState(false);
 
+  const loadStoresData = useCallback(async () => {
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const storeList = await listStores();
+      setStores(storeList);
+
+      if (!storeList.length) {
+        setSelectedStoreIdState('');
+        setPopups([]);
+        setSelectedPopupIdState('');
+        setOrderItems([]);
+        setOrders([]);
+        setSummary(null);
+        return;
+      }
+
+      const savedStoreId = getSelectedStoreId();
+      const hasSavedStore = savedStoreId && storeList.some((store) => store.id === savedStoreId);
+      const initialStoreId = hasSavedStore ? savedStoreId : storeList[0].id;
+
+      setSelectedStoreId(initialStoreId);
+      setSelectedStoreIdState(initialStoreId);
+    } catch (loadError) {
+      setError(loadError?.message || '스토어 정보를 불러오지 못했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const token = getManagerToken();
     if (!token) {
@@ -64,39 +111,8 @@ export default function Dashboard() {
       });
     }
 
-    const loadStoresData = async () => {
-      setError('');
-      setIsLoading(true);
-
-      try {
-        const storeList = await listStores();
-        setStores(storeList);
-
-        if (!storeList.length) {
-          setSelectedStoreIdState('');
-          setPopups([]);
-          setSelectedPopupIdState('');
-          setOrderItems([]);
-          setOrders([]);
-          setSummary(null);
-          return;
-        }
-
-        const savedStoreId = getSelectedStoreId();
-        const hasSavedStore = savedStoreId && storeList.some((store) => store.id === savedStoreId);
-        const initialStoreId = hasSavedStore ? savedStoreId : storeList[0].id;
-
-        setSelectedStoreId(initialStoreId);
-        setSelectedStoreIdState(initialStoreId);
-      } catch (loadError) {
-        setError(loadError?.message || '스토어 정보를 불러오지 못했습니다.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadStoresData();
-  }, [router]);
+  }, [loadStoresData, router]);
 
   useEffect(() => {
     if (!selectedStoreId) return;
@@ -227,8 +243,11 @@ export default function Dashboard() {
   }, []);
 
   const stats = useMemo(() => {
+    const weeklyOrdersFallback = countRecentOrders(orders, 7);
+
     // 📊 새로운 대시보드 데이터 사용 (우선순위)
     if (dashboardMain && isDashboardHealthy) {
+      const weeklyOrders = dashboardMain.weeklyOrders ?? weeklyOrdersFallback;
       return [
         {
           title: '전체 매출',
@@ -237,9 +256,9 @@ export default function Dashboard() {
           positive: true
         },
         {
-          title: '전체 주문',
-          value: `${dashboardMain.totalOrders || 0}건`,
-          change: `오늘 ${dashboardMain.todayOrders || 0}건`,
+          title: '주문 건수',
+          value: `${weeklyOrders}건`,
+          change: '최근 7일',
           positive: true
         },
         {
@@ -278,7 +297,7 @@ export default function Dashboard() {
       },
       {
         title: '주문 건수',
-        value: `${orders.length}건`,
+        value: `${weeklyOrdersFallback}건`,
         change: `오늘 ${todayCount}건`,
         positive: true
       },
@@ -346,6 +365,7 @@ export default function Dashboard() {
         || b.revenueValue - a.revenueValue
       ))
       .slice(0, 3)
+      // eslint-disable-next-line no-unused-vars
       .map(({ paidCount: _paidCount, qty: _qty, revenueValue: _revenueValue, ...rest }) => rest);
 
     if (items.length > 0) return items;
@@ -425,7 +445,8 @@ export default function Dashboard() {
         <header className="dashboard-header">
           <div className="header-content">
             <h1 className="page-title">팝콘 팝업 스토어 대시보드</h1>
-            <p className="page-subtitle">수제 팝콘 팝업스토어 관리 시스템</p>
+            <p className="page-subtitle">팝업스토어 관리 시스템</p>
+
             {stores.length > 0 && (
               <div className="dashboard-filter-row">
                 <select value={selectedStoreId} onChange={handleStoreChange} className="dashboard-filter-select">

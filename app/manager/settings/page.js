@@ -7,7 +7,7 @@ import '../popups/popups.css';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [user, setUser] = useState({
+  const [user, setUser] = useState({ // eslint-disable-line no-unused-vars
     name: '박매니저',
     email: 'manager@popcorn.kr'
   });

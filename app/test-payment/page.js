@@ -55,7 +55,7 @@ function TestPaymentContent() {
         setTimeout(() => startPaymentWithOrder(mockOrderResult), 1000);
       }
     }
-  }, [urlOrderId, urlOrderNo, urlAmount, autoStart, scriptReady]);
+  }, [urlOrderId, urlOrderNo, urlAmount, autoStart, scriptReady, startPaymentWithOrder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const createTestOrder = async () => {
     setLoading(true);
@@ -104,6 +104,7 @@ function TestPaymentContent() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const startPaymentWithOrder = async (order = orderResult) => {
     if (!order) {
       setError('주문 정보가 없습니다. 먼저 주문을 생성하세요.');

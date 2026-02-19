@@ -53,6 +53,56 @@
   border: 1px solid #e2e8f0;
 }
 
+.orders-pagination {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.orders-pagination-summary {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.orders-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.pagination-btn.active {
+  background: #ea580c;
+  border-color: #ea580c;
+  color: white;
+}
+
+.pagination-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 /* 필터 */
 .orders-filters {
   display: flex;
@@ -138,5 +188,10 @@
 
   .orders-content {
     padding: 16px;
+  }
+
+  .orders-pagination {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
