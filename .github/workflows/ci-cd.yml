@@ -182,12 +182,16 @@ jobs:
       if: ${{ success() && env.DISCORD_WEBHOOK_URL != '' }}
       run: |
         set -eu
-        SHA_SHORT="${GITHUB_SHA::8}"
         TAGS="${{ steps.image-tags.outputs.tags }}"
-        TAGS_ONE_LINE="$(echo "$TAGS" | tr '\n' ',' | sed 's/,$//')"
+        IMAGE="$(echo "$TAGS" | head -n 1)"
+        AUTHOR="${{ github.actor }}"
+        REPO="${GITHUB_REPOSITORY}"
+        SERVICE="${ECR_REPOSITORY}"
+        RUN_NO="${GITHUB_RUN_NUMBER}"
+        COMMIT="${GITHUB_SHA}"
         MESSAGE=$(cat <<EOF
         {
-          "content": "✅ ECR Push Success | Repo: ${GITHUB_REPOSITORY} | Ref: ${GITHUB_REF_NAME} | Commit: ${SHA_SHORT} | Tags: ${TAGS_ONE_LINE}"
+          "content": "✅ Deploy SUCCESS by.${AUTHOR}\n👤 Author: ${AUTHOR}\nService: ${SERVICE}\nRepo: ${REPO}\nImage: ${IMAGE}\nRun: #${RUN_NO}\nCommit: ${COMMIT}"
         }
         EOF
         )
