@@ -66,6 +66,7 @@ jobs:
     env:
       AWS_REGION: ap-northeast-2
       ECR_REPOSITORY: goorm-popcorn-front
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
     steps:
     - name: Checkout code
@@ -114,6 +115,7 @@ jobs:
         } >> "$GITHUB_OUTPUT"
 
     - name: Build and Push Docker image to ECR
+      id: ecr-build-push
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -123,3 +125,21 @@ jobs:
         tags: ${{ steps.image-tags.outputs.tags }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    - name: Notify Discord on ECR push success
+      if: ${{ success() && env.DISCORD_WEBHOOK_URL != '' }}
+      run: |
+        set -eu
+        SHA_SHORT="${GITHUB_SHA::8}"
+        TAGS="${{ steps.image-tags.outputs.tags }}"
+        TAGS_ONE_LINE="$(echo "$TAGS" | tr '\n' ',' | sed 's/,$//')"
+        MESSAGE=$(cat <<EOF
+        {
+          "content": "✅ ECR Push Success | Repo: ${GITHUB_REPOSITORY} | Ref: ${GITHUB_REF_NAME} | Commit: ${SHA_SHORT} | Tags: ${TAGS_ONE_LINE}"
+        }
+        EOF
+        )
+        curl -sS -X POST \
+          -H "Content-Type: application/json" \
+          -d "$MESSAGE" \
+          "$DISCORD_WEBHOOK_URL"
