@@ -18,8 +18,9 @@ function AutoPaymentContent() {
   const router = useRouter();
 
   const token = searchParams.get('token'); // 🔐 암호화된 토큰
-  const paymentApiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "test_ck_AQ92ymxN34LKgMYlpPZy3ajRKXvd";
+  const paymentApiBase = process.env.NEXT_PUBLIC_API_BASE_URL
+    || (typeof window !== 'undefined' ? window.location.origin : '');
 
   // 🔐 토큰 디코딩으로 결제 정보 가져오기
   useEffect(() => {
@@ -104,8 +105,8 @@ function AutoPaymentContent() {
       const tossPayments = window.TossPayments(clientKey);
 
       // 간단한 결제 승인 - JWT 토큰 불필요
-      const successUrl = paymentInfo.successUrl || "http://localhost:3000/payments/success";
-      const failUrl = paymentInfo.failUrl || "http://localhost:3000/payments/fail";
+      const successUrl = paymentInfo.successUrl || `${paymentApiBase}/payments/success`;
+      const failUrl = paymentInfo.failUrl || `${paymentApiBase}/payments/fail`;
 
       await tossPayments.requestPayment('CARD', {
         orderId: paymentInfo.orderId || paymentInfo.orderNo,
@@ -142,7 +143,7 @@ function AutoPaymentContent() {
           });
       }, 5000);
     }
-  }, [paymentStarted, paymentInfo, token, clientKey, router, refreshPaymentToken]);
+  }, [paymentStarted, paymentInfo, token, clientKey, router, refreshPaymentToken, paymentApiBase]);
 
   // 🚀 페이지 로드 즉시 결제창 자동 실행
   useEffect(() => {

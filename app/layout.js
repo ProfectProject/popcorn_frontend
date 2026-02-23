@@ -1,5 +1,6 @@
 import "./globals.css";
 import ClientFetchLogger from "../components/ClientFetchLogger";
+import ClientBootLog from "../components/ClientBootLog";
 
 export const metadata = {
   title: "Popcorn Payments",
@@ -25,6 +26,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
+        <ClientBootLog />
         <ClientFetchLogger />
         {children}
       </body>

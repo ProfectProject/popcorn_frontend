@@ -9,7 +9,8 @@ function TestPaymentContent() {
   const [orderResult, setOrderResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const apiBase = "http://localhost:8080";
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL
+    || (typeof window !== 'undefined' ? window.location.origin : '');
 
   const searchParams = useSearchParams();
 
@@ -120,8 +121,8 @@ function TestPaymentContent() {
         clientKey: process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "test_ck_AQ92ymxN34LKgMYlpPZy3ajRKXvd",
         customerKey: "guest",
         readyForPayment: true,
-        successUrl: process.env.NEXT_PUBLIC_SUCCESS_URL || "http://localhost:3000/payments/success",
-        failUrl: process.env.NEXT_PUBLIC_FAIL_URL || "http://localhost:3000/payments/fail"
+        successUrl: process.env.NEXT_PUBLIC_SUCCESS_URL || `${apiBase}/payments/success`,
+        failUrl: process.env.NEXT_PUBLIC_FAIL_URL || `${apiBase}/payments/fail`
       };
 
       setOrderResult(mockOrderResult);
@@ -131,7 +132,7 @@ function TestPaymentContent() {
         setTimeout(() => startPaymentWithOrder(mockOrderResult), 1000);
       }
     }
-  }, [urlOrderId, urlOrderNo, urlAmount, autoStart, scriptReady, startPaymentWithOrder]);
+  }, [urlOrderId, urlOrderNo, urlAmount, autoStart, scriptReady, startPaymentWithOrder, apiBase]);
 
   const startPayment = () => startPaymentWithOrder();
 

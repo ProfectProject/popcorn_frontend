@@ -16,8 +16,9 @@ function PaymentsContent({ initialToken }) {
   };
 
   const token = initialToken || "";
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "";
+  const paymentApiBase = process.env.NEXT_PUBLIC_API_BASE_URL
+    || (typeof window !== "undefined" ? window.location.origin : "");
 
   const [scriptReady, setScriptReady] = useState(false);
   const [method, setMethod] = useState("CARD");
@@ -43,11 +44,11 @@ function PaymentsContent({ initialToken }) {
       }
 
       try {
-        console.log("🔍 API 호출 시작:", `${apiBase}/api/pay/v1/payments/decode`);
+        console.log("🔍 API 호출 시작:", `${paymentApiBase}/api/pay/v1/payments/decode`);
         console.log("🔍 토큰:", token.substring(0, 20) + "...");
 
         const response = await fetch(
-          `${apiBase}/api/pay/v1/payments/decode?token=${encodeURIComponent(token)}`
+          `${paymentApiBase}/api/pay/v1/payments/decode?token=${encodeURIComponent(token)}`
         );
 
         console.log("🔍 API 응답 상태:", response.status);
@@ -72,7 +73,7 @@ function PaymentsContent({ initialToken }) {
     };
 
     fetchPaymentInfo();
-  }, [token, apiBase]);
+  }, [token, paymentApiBase]);
 
   useEffect(() => {
     if (!scriptReady || !paymentInfo) {
@@ -120,8 +121,8 @@ function PaymentsContent({ initialToken }) {
         orderId: paymentInfo.orderId || paymentInfo.orderNo,
         orderName,
         amount: paymentInfo.amount,
-        successUrl: paymentInfo.successUrl,
-        failUrl: paymentInfo.failUrl,
+        successUrl: paymentInfo.successUrl || `${paymentApiBase}/payments/success`,
+        failUrl: paymentInfo.failUrl || `${paymentApiBase}/payments/fail`,
         customerKey: normalizeCustomerKey(paymentInfo.customerKey)
       };
 
