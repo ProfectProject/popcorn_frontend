@@ -7,7 +7,6 @@ on:
   push:
     branches:
       - main
-      - develop
     tags:
       - 'v*'
   pull_request:
@@ -87,7 +86,7 @@ jobs:
   ecr-push:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v')) && !(startsWith(github.ref, 'refs/tags/v') && github.actor == 'github-actions[bot]')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && !(startsWith(github.ref, 'refs/tags/v') && github.actor == 'github-actions[bot]')
     env:
       AWS_REGION: ap-northeast-2
       ECR_REPOSITORY: goorm-popcorn-front
@@ -134,8 +133,6 @@ jobs:
             exit 1
           fi
           TAGS="${REGISTRY}/${REPO}:${SHA_SHORT}"$'\n'"${REGISTRY}/${REPO}:${HEAD_SEMVER_TAG}"$'\n'"${REGISTRY}/${REPO}:latest"
-        elif [ "$REF" = "refs/heads/develop" ]; then
-          TAGS="${REGISTRY}/${REPO}:dev-${SHA_SHORT}"$'\n'"${REGISTRY}/${REPO}:dev-latest"
         elif [[ "$REF" == refs/tags/v* ]]; then
           if ! echo "${REF_NAME}" | grep -Eq "${SEMVER_REGEX}"; then
             echo "Invalid semver tag: ${REF_NAME}"
@@ -187,3 +184,111 @@ jobs:
           -H "Content-Type: application/json" \
           -d "$MESSAGE" \
           "$DISCORD_WEBHOOK_URL"
+
+  update-gitops-values:
+    name: Update GitOps values (frontend)
+    needs: [ecr-push]
+    if: github.event_name == 'push' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      GITOPS_REPO: ProfectProject/popcorn_deploy
+      GITOPS_BRANCH: main
+
+    steps:
+    - name: Checkout source repository (for tag resolution)
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        fetch-tags: true
+
+    - name: Set IMAGE_TAG and VALUES_FILE by branch
+      id: gitops_tag
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+          echo "Unsupported branch for GitOps update: ${GITHUB_REF_NAME}"
+          exit 1
+        fi
+
+        git fetch --tags --force
+        SEMVER_REGEX='^v[0-9]+\.[0-9]+\.[0-9]+$'
+        RESOLVED_TAG="$(git tag --points-at "${GITHUB_SHA}" | grep -E "${SEMVER_REGEX}" | head -n 1 || true)"
+        if [[ -z "${RESOLVED_TAG}" ]]; then
+          echo "SemVer tag not found on commit ${GITHUB_SHA}"
+          exit 1
+        fi
+
+        echo "IMAGE_TAG=${RESOLVED_TAG}" >> "$GITHUB_ENV"
+        echo "VALUES_FILE=helm/popcorn-umbrella/values-prod.yaml" >> "$GITHUB_ENV"
+        echo "Using IMAGE_TAG=${RESOLVED_TAG}"
+        echo "Using VALUES_FILE=helm/popcorn-umbrella/values-prod.yaml"
+
+    - name: Install tools (jq, yq)
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update -y
+        sudo apt-get install -y jq
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq
+        yq --version
+        jq --version
+
+    - name: Clone GitOps repo
+      shell: bash
+      env:
+        GITOPS_TOKEN: ${{ secrets.GITOPS_TOKEN }}
+      run: |
+        set -euo pipefail
+        git clone "https://x-access-token:${GITOPS_TOKEN}@github.com/${GITOPS_REPO}.git" gitops
+        cd gitops
+        git checkout "${GITOPS_BRANCH}"
+
+    - name: Update GitOps values for frontend only
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd gitops
+
+        # 프론트 서비스 키 자동 탐색: frontend -> front -> web
+        SERVICE_KEY=""
+        for key in frontend front web; do
+          if [[ "$(yq e "has(\"${key}\")" "${VALUES_FILE}")" == "true" ]]; then
+            SERVICE_KEY="${key}"
+            break
+          fi
+        done
+
+        if [[ -z "${SERVICE_KEY}" ]]; then
+          echo "No frontend key found in ${VALUES_FILE}. Tried: frontend, front, web"
+          exit 1
+        fi
+
+        echo "Updating .${SERVICE_KEY}.image.tag -> ${IMAGE_TAG}"
+        yq -i ".${SERVICE_KEY}.image.tag = \"${IMAGE_TAG}\"" "${VALUES_FILE}"
+
+        echo "---- diff ----"
+        git diff -- "${VALUES_FILE}" || true
+
+    - name: Commit & push (single commit)
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd gitops
+
+        if git diff --quiet; then
+          echo "No changes to commit."
+          exit 0
+        fi
+
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+
+        git add "${VALUES_FILE}"
+        git commit -m "chore(gitops): bump frontend image tag -> ${IMAGE_TAG}"
+        git push origin "${GITOPS_BRANCH}"
