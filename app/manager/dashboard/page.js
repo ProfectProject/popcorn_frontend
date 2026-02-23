@@ -220,7 +220,7 @@ export default function Dashboard() {
             const orderItemPage = await listOrderItems(selectedStoreId, selectedPopupId, {
               page,
               size: currentSize,
-              sortBy: 'createdAt',
+              sortBy: 'orderedAt',
               sortDirection: 'DESC'
             });
             const items = Array.isArray(orderItemPage?.items) ? orderItemPage.items : [];
@@ -424,7 +424,6 @@ export default function Dashboard() {
 
     orders.forEach((order) => {
       if (!order.orderDate) return;
-      if (order.status !== 'completed') return;
       const d = new Date(order.orderDate);
       if (Number.isNaN(d.getTime()) || d < since) return;
       d.setHours(0, 0, 0, 0);

@@ -205,8 +205,8 @@ export default function OrdersPage() {
         const orderPage = await getDashboardOrders({
           page: 0,
           size: FETCH_SIZE,
-          // orderquery는 createdAt 기준 정렬이 가장 안정적이다(orderedAt null 데이터 존재).
-          sortBy: 'createdAt',
+          // popcorn_msa orderquery의 주문 시각 축은 orderedAt 정렬이 가장 일관적이다.
+          sortBy: 'orderedAt',
           sortDirection: 'DESC',
           popupId: selectedPopupId === 'all' ? undefined : selectedPopupId
         });
