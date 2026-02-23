@@ -21,6 +21,8 @@ function PaymentSuccessContent() {
   const [countdown, setCountdown] = useState(5);
   const hasConfirmedRef = useRef(false);
   const [latestStatus, setLatestStatus] = useState("");
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [recentOrdersLoading, setRecentOrdersLoading] = useState(false);
   const sanitize = (value) => {
     if (!value) {
       return "-";
@@ -141,6 +143,64 @@ function PaymentSuccessContent() {
     return () => clearInterval(intervalId);
   }, [status, orderId, paymentApiBase]);
 
+  useEffect(() => {
+    if (!orderId) return;
+
+    const normalizeOrderList = (payload) => {
+      const data = payload?.data ?? payload;
+      if (Array.isArray(data)) return data;
+      if (!data || typeof data !== "object") return [];
+
+      const candidates = [
+        data.recentOrders,
+        data.orders,
+        data.orderHistory,
+        data.history,
+        data.paymentHistory,
+        data.items
+      ];
+      const firstArray = candidates.find((value) => Array.isArray(value));
+      if (firstArray) return firstArray;
+
+      if (data.orderId || data.orderNo || data.paymentKey || data.status) {
+        return [data];
+      }
+      return [];
+    };
+
+    const loadRecentOrders = async () => {
+      setRecentOrdersLoading(true);
+      try {
+        // 우선 최신 결제 상태 응답에서 내역 후보를 파싱한다.
+        const latestRes = await fetch(`${paymentApiBase}/api/pay/v1/payments/orders/${orderId}/latest`);
+        if (latestRes.ok) {
+          const latestPayload = await latestRes.json();
+          const normalized = normalizeOrderList(latestPayload);
+          if (normalized.length > 0) {
+            setRecentOrders(normalized.slice(0, 5));
+            return;
+          }
+        }
+
+        // 최신 응답에 배열이 없을 때 상세 조회를 한 번 더 시도한다.
+        const detailRes = await fetch(`${paymentApiBase}/api/pay/v1/payments/orders/${orderId}`);
+        if (!detailRes.ok) {
+          setRecentOrders([]);
+          return;
+        }
+        const detailPayload = await detailRes.json();
+        const normalized = normalizeOrderList(detailPayload);
+        setRecentOrders(normalized.slice(0, 5));
+      } catch (_error) {
+        setRecentOrders([]);
+      } finally {
+        setRecentOrdersLoading(false);
+      }
+    };
+
+    loadRecentOrders();
+  }, [orderId, paymentApiBase]);
+
   // 결제 성공 시 카운트다운 후 홈으로 리다이렉트
   useEffect(() => {
     if (status === "success" && countdown > 0) {
@@ -183,6 +243,23 @@ function PaymentSuccessContent() {
             <p className="mono">status: {status}</p>
             {latestStatus ? <p className="mono">paymentStatus: {latestStatus}</p> : null}
             {message ? <p>{message}</p> : null}
+          </div>
+
+          <div className="status" style={{ marginTop: "16px", textAlign: "left" }}>
+            <p className="mono" style={{ marginBottom: "8px" }}>최근 주문 내역</p>
+            {recentOrdersLoading ? (
+              <p>주문 내역을 불러오는 중...</p>
+            ) : recentOrders.length === 0 ? (
+              <p>표시할 최근 주문 내역이 없습니다.</p>
+            ) : (
+              <ul style={{ margin: 0, paddingLeft: "20px" }}>
+                {recentOrders.map((order, index) => (
+                  <li key={`${order?.orderId || order?.orderNo || "order"}-${index}`}>
+                    {sanitize(order?.orderNo || order?.orderId || "-")} · {sanitize(order?.status || order?.orderStatus || "-")} · {sanitize(order?.amount || order?.paymentAmount || amount || "-")}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {status === "success" && (
