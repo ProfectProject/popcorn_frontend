@@ -151,7 +151,7 @@ export default function CreateCouponPage() {
         try {
           await activateCoupon(created.id);
         } catch (activateError) {
-          console.error('쿠폰 즉시 활성화 실패:', activateError);
+          console.warn('쿠폰 즉시 활성화 실패(생성은 완료):', activateError);
         }
       }
 
