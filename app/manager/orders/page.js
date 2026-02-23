@@ -32,9 +32,63 @@ function extractDashboardOrderItems(payload) {
     for (const key of directKeys) {
       if (Array.isArray(data?.[key])) return data[key];
     }
+
+    const nested = [data.page, data.pageInfo, data.pagination, data.meta];
+    for (const container of nested) {
+      if (!container || typeof container !== 'object') continue;
+      for (const key of directKeys) {
+        if (Array.isArray(container?.[key])) return container[key];
+      }
+    }
   }
 
   return [];
+}
+
+function normalizeDashboardOrderStatus(rawStatus, rawPaymentStatus) {
+  const status = String(rawStatus || '').toUpperCase();
+  const payment = String(rawPaymentStatus || '').toUpperCase();
+
+  if (status === 'COMPLETED' || status === 'PAID' || payment === 'PAID') return 'completed';
+  if (status === 'ACCEPTED' || status === 'RESERVED' || status === 'SHIPPING') return 'shipping';
+  if (status === 'REQUESTED' || status === 'PAYMENT_PENDING' || status === 'PENDING') return 'pending';
+  if (status === 'CANCELLED' || status === 'FAILED' || status === 'REJECTED' || payment === 'FAILED') return 'pending';
+  return 'shipping';
+}
+
+function mapDashboardOrdersToUi(orders = []) {
+  if (!Array.isArray(orders)) return [];
+
+  return orders
+    .map((order, index) => {
+      const orderId = order?.orderId ?? order?.id ?? order?.snapshotId ?? null;
+      const orderNo = order?.orderNo ?? order?.orderNumber ?? null;
+      const amount = Number(
+        order?.totalAmount
+        ?? order?.paymentAmount
+        ?? order?.amount
+        ?? order?.linePrice
+        ?? 0
+      );
+
+      return {
+        id: orderNo || String(orderId || `dashboard-order-${index}`),
+        orderId: orderId || orderNo || `dashboard-order-${index}`,
+        customerId: order?.userId ?? order?.customerId ?? null,
+        customerName: order?.customerName || order?.userName || order?.buyerName || '고객',
+        products: Array.isArray(order?.products) && order.products.length > 0
+          ? order.products.map((p) => String(p?.name || p?.goodsName || p?.title || '상품'))
+          : [String(order?.productName || order?.goodsName || order?.orderType || '주문 항목')],
+        totalAmount: Number.isFinite(amount) ? amount : 0,
+        status: normalizeDashboardOrderStatus(order?.status || order?.orderStatus, order?.paymentStatus),
+        rawOrderStatus: order?.orderStatus || order?.status || null,
+        rawPaymentStatus: order?.paymentStatus || null,
+        orderDate: order?.orderedAt || order?.orderDate || order?.createdAt || null,
+        phone: order?.phone || order?.userPhone || order?.customerPhone || '',
+        checkedIn: Boolean(order?.checkedIn)
+      };
+    })
+    .sort((a, b) => new Date(b.orderDate || 0) - new Date(a.orderDate || 0));
 }
 
 function extractPageMeta(payload, fallbackPage, fallbackSize, itemCount) {
@@ -173,7 +227,8 @@ export default function OrdersPage() {
         const orderPage = await getDashboardOrders({
           page: pageIndex,
           size: pageSize,
-          sortBy: 'orderedAt',
+          // orderquery는 createdAt 기준 정렬이 가장 안정적이다(orderedAt null 데이터 존재).
+          sortBy: 'createdAt',
           sortDirection: 'desc',
           popupId: selectedPopupId === 'all' ? undefined : selectedPopupId
         });
@@ -190,7 +245,10 @@ export default function OrdersPage() {
           ));
         }
 
-        const mappedOrders = aggregateOrdersFromOrderItems(items);
+        let mappedOrders = aggregateOrdersFromOrderItems(items);
+        if (mappedOrders.length === 0 && items.length > 0) {
+          mappedOrders = mapDashboardOrdersToUi(items);
+        }
         if (canceled) return;
 
         // 1차 렌더는 즉시 표시
