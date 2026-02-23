@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from 'react';
+import { useCallback, useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 
@@ -33,29 +33,6 @@ function TestPaymentContent() {
       }
     ]
   };
-
-  // 🎯 Swagger에서 온 URL 파라미터로 자동 결제 설정
-  useEffect(() => {
-    if (urlOrderId && urlOrderNo && urlAmount) {
-      const mockOrderResult = {
-        orderId: urlOrderId,
-        orderNo: urlOrderNo,
-        paymentAmount: parseInt(urlAmount),
-        clientKey: process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "test_ck_AQ92ymxN34LKgMYlpPZy3ajRKXvd",
-        customerKey: "guest",
-        readyForPayment: true,
-        successUrl: process.env.NEXT_PUBLIC_SUCCESS_URL || "http://localhost:3000/payments/success",
-        failUrl: process.env.NEXT_PUBLIC_FAIL_URL || "http://localhost:3000/payments/fail"
-      };
-
-      setOrderResult(mockOrderResult);
-
-      // auto=true이면 스크립트 로드 후 자동 결제 시작
-      if (autoStart && scriptReady) {
-        setTimeout(() => startPaymentWithOrder(mockOrderResult), 1000);
-      }
-    }
-  }, [urlOrderId, urlOrderNo, urlAmount, autoStart, scriptReady, startPaymentWithOrder]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const createTestOrder = async () => {
     setLoading(true);
@@ -104,8 +81,7 @@ function TestPaymentContent() {
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const startPaymentWithOrder = async (order = orderResult) => {
+  const startPaymentWithOrder = useCallback(async (order = orderResult) => {
     if (!order) {
       setError('주문 정보가 없습니다. 먼저 주문을 생성하세요.');
       return;
@@ -132,7 +108,30 @@ function TestPaymentContent() {
       console.error('결제 오류:', err);
       setError(`결제 실패: ${err.message}`);
     }
-  };
+  }, [orderResult]);
+
+  // 🎯 Swagger에서 온 URL 파라미터로 자동 결제 설정
+  useEffect(() => {
+    if (urlOrderId && urlOrderNo && urlAmount) {
+      const mockOrderResult = {
+        orderId: urlOrderId,
+        orderNo: urlOrderNo,
+        paymentAmount: parseInt(urlAmount, 10),
+        clientKey: process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "test_ck_AQ92ymxN34LKgMYlpPZy3ajRKXvd",
+        customerKey: "guest",
+        readyForPayment: true,
+        successUrl: process.env.NEXT_PUBLIC_SUCCESS_URL || "http://localhost:3000/payments/success",
+        failUrl: process.env.NEXT_PUBLIC_FAIL_URL || "http://localhost:3000/payments/fail"
+      };
+
+      setOrderResult(mockOrderResult);
+
+      // auto=true이면 스크립트 로드 후 자동 결제 시작
+      if (autoStart && scriptReady) {
+        setTimeout(() => startPaymentWithOrder(mockOrderResult), 1000);
+      }
+    }
+  }, [urlOrderId, urlOrderNo, urlAmount, autoStart, scriptReady, startPaymentWithOrder]);
 
   const startPayment = () => startPaymentWithOrder();
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, Suspense } from 'react';
+import { useCallback, useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Script from 'next/script';
 
@@ -58,8 +58,17 @@ function AutoPaymentContent() {
     fetchPaymentInfo();
   }, [token, paymentApiBase]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const startPayment = async () => {
+  const refreshPaymentToken = useCallback(async () => {
+    if (!token) return null;
+    const response = await fetch(`${paymentApiBase}/api/pay/v1/payments/refresh?token=${encodeURIComponent(token)}`);
+    if (!response.ok) {
+      return null;
+    }
+    const result = await response.json();
+    return result?.data || null;
+  }, [token, paymentApiBase]);
+
+  const startPayment = useCallback(async () => {
     if (paymentStarted || !paymentInfo || paymentExecuted.current) return;
 
     // 🔒 중복 실행 방지: 즉시 실행 플래그 설정
@@ -70,7 +79,7 @@ function AutoPaymentContent() {
       startKeyRef.current = storageKey;
       if (window.sessionStorage.getItem(storageKey)) {
         try {
-          const refreshed = await refreshToken();
+          const refreshed = await refreshPaymentToken();
           if (refreshed?.token) {
             router.replace(`/auto-payment?token=${encodeURIComponent(refreshed.token)}`);
             return;
@@ -120,7 +129,7 @@ function AutoPaymentContent() {
 
       // 5초 후 새 토큰 발급 시도 → 실패 시 테스트 페이지로 이동
       setTimeout(() => {
-        refreshToken()
+        refreshPaymentToken()
           .then((refreshed) => {
             if (refreshed?.token) {
               router.push(`/auto-payment?token=${encodeURIComponent(refreshed.token)}`);
@@ -133,7 +142,7 @@ function AutoPaymentContent() {
           });
       }, 5000);
     }
-  };
+  }, [paymentStarted, paymentInfo, token, clientKey, router, refreshPaymentToken]);
 
   // 🚀 페이지 로드 즉시 결제창 자동 실행
   useEffect(() => {
@@ -141,24 +150,14 @@ function AutoPaymentContent() {
 
     // 🎯 바로 결제창 실행!
     startPayment();
-  }, [scriptReady, paymentStarted, loading, paymentInfo, startPayment]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const refreshToken = async () => {
-    if (!token) return null;
-    const response = await fetch(`${paymentApiBase}/api/pay/v1/payments/refresh?token=${encodeURIComponent(token)}`);
-    if (!response.ok) {
-      return null;
-    }
-    const result = await response.json();
-    return result?.data || null;
-  };
+  }, [scriptReady, paymentStarted, loading, paymentInfo, startPayment]);
 
   const goToTestPage = () => {
     router.push(`/test-payment?token=${encodeURIComponent(token)}`);
   };
 
   const retryWithNewToken = async () => {
-    const refreshed = await refreshToken();
+    const refreshed = await refreshPaymentToken();
     if (refreshed?.token) {
       router.replace(`/auto-payment?token=${encodeURIComponent(refreshed.token)}`);
       return;
