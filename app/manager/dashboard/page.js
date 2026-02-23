@@ -11,6 +11,7 @@ import './dashboard.css';
 import {
   aggregateOrdersFromOrderItems,
   clearManagerSession,
+  getDashboardMainByStore,
   getManagerToken,
   getManagerUser,
   getSelectedPopupId,
@@ -169,10 +170,34 @@ export default function Dashboard() {
 
         let orderItems = [];
         try {
-          const orderItemPage = await listOrderItems(selectedStoreId, selectedPopupId, { page: 0, size: 200 });
-          orderItems = orderItemPage?.items || [];
+          // 504 타임아웃 방지를 위해 대용량 단건 조회 대신 페이지 분할 조회를 사용한다.
+          const targetCount = 200;
+          const pageSize = 50;
+          let page = 0;
+
+          while (orderItems.length < targetCount) {
+            const remaining = targetCount - orderItems.length;
+            const currentSize = Math.min(pageSize, remaining);
+            const orderItemPage = await listOrderItems(selectedStoreId, selectedPopupId, { page, size: currentSize });
+            const items = Array.isArray(orderItemPage?.items) ? orderItemPage.items : [];
+
+            if (items.length === 0) break;
+
+            orderItems = [...orderItems, ...items];
+
+            const hasTotalPages = typeof orderItemPage?.totalPages === 'number';
+            const reachedLastPage = hasTotalPages
+              ? page + 1 >= orderItemPage.totalPages
+              : items.length < currentSize;
+
+            if (reachedLastPage) break;
+            page += 1;
+          }
         } catch (itemsError) {
-          if (!isApiError(itemsError, 404)) {
+          // 주문 아이템 API가 타임아웃되더라도 대시보드 전체를 깨지 않게 한다.
+          if (isApiError(itemsError, 504)) {
+            console.warn('주문 아이템 조회 타임아웃(504) - 부분 데이터로 계속 진행합니다.');
+          } else if (!isApiError(itemsError, 404)) {
             throw itemsError;
           }
         }
@@ -193,7 +218,7 @@ export default function Dashboard() {
     loadDashboardData();
   }, [selectedStoreId, selectedPopupId]);
 
-  // 📊 시스템 전체 대시보드 데이터 로드
+  // 📊 대시보드 메인 데이터 로드 (스토어별 우선)
   useEffect(() => {
     const loadGlobalDashboardData = async () => {
       try {
@@ -213,11 +238,9 @@ export default function Dashboard() {
         if (healthy) {
           try {
             const baseDate = new Date().toISOString().split('T')[0];
-            let mainData;
-
-            // 📊 임시: 전체 통계만 사용 (스토어별 기능 비활성화)
-            console.log('📊 전체 대시보드 데이터 로딩');
-            mainData = await getDashboardMain(baseDate);
+            const mainData = selectedStoreId
+              ? await getDashboardMainByStore(selectedStoreId, baseDate)
+              : await getDashboardMain(baseDate);
 
             setDashboardMain(mainData);
             console.log('✅ 대시보드 데이터 로드 완료:', mainData);
@@ -240,7 +263,7 @@ export default function Dashboard() {
     };
 
     loadGlobalDashboardData();
-  }, []);
+  }, [selectedStoreId]);
 
   const stats = useMemo(() => {
     const weeklyOrdersFallback = countRecentOrders(orders, 7);

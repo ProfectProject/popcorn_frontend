@@ -286,8 +286,15 @@ export default function CouponsPage() {
         targetType: 'ALL_USERS'
       });
 
-      setCoupons(prev => [mapCouponToUi(created), ...prev]);
+      // 생성 성공 시 모달은 즉시 닫고, 목록 반영은 안전하게 처리한다.
       setShowQuickModal(false);
+
+      if (created && typeof created === 'object') {
+        const mappedCreated = mapCouponToUi(created);
+        setCoupons((prev) => [mappedCreated, ...prev.filter((coupon) => coupon.id !== mappedCreated.id)]);
+      } else {
+        await loadCoupons();
+      }
     } catch (saveError) {
       setError(saveError?.message || '쿠폰 등록에 실패했습니다.');
     } finally {

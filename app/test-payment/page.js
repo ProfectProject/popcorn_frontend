@@ -44,8 +44,8 @@ function TestPaymentContent() {
         clientKey: process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "test_ck_AQ92ymxN34LKgMYlpPZy3ajRKXvd",
         customerKey: "guest",
         readyForPayment: true,
-        successUrl: "http://localhost:3000/payments/success",
-        failUrl: "http://localhost:3000/payments/fail"
+        successUrl: process.env.NEXT_PUBLIC_SUCCESS_URL || "http://localhost:3000/payments/success",
+        failUrl: process.env.NEXT_PUBLIC_FAIL_URL || "http://localhost:3000/payments/fail"
       };
 
       setOrderResult(mockOrderResult);
