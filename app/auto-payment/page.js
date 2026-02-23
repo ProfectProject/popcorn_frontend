@@ -58,14 +58,6 @@ function AutoPaymentContent() {
     fetchPaymentInfo();
   }, [token, paymentApiBase]);
 
-  // 🚀 페이지 로드 즉시 결제창 자동 실행
-  useEffect(() => {
-    if (!scriptReady || paymentStarted || loading || !paymentInfo || paymentExecuted.current) return;
-
-    // 🎯 바로 결제창 실행!
-    startPayment();
-  }, [scriptReady, paymentStarted, loading, paymentInfo, startPayment]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const startPayment = async () => {
     if (paymentStarted || !paymentInfo || paymentExecuted.current) return;
@@ -142,6 +134,14 @@ function AutoPaymentContent() {
       }, 5000);
     }
   };
+
+  // 🚀 페이지 로드 즉시 결제창 자동 실행
+  useEffect(() => {
+    if (!scriptReady || paymentStarted || loading || !paymentInfo || paymentExecuted.current) return;
+
+    // 🎯 바로 결제창 실행!
+    startPayment();
+  }, [scriptReady, paymentStarted, loading, paymentInfo, startPayment]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshToken = async () => {
     if (!token) return null;

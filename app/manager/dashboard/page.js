@@ -66,6 +66,14 @@ export default function Dashboard() {
   const [dashboardMain, setDashboardMain] = useState(null);
   const [isDashboardHealthy, setIsDashboardHealthy] = useState(false);
 
+  const forceLogoutOnServerError = useCallback(() => {
+    clearManagerSession();
+    if (typeof window !== 'undefined') {
+      window.alert('서버 오류가 반복되어 로그아웃합니다. 다시 로그인해주세요.');
+    }
+    router.replace('/manager');
+  }, [router]);
+
   const loadStoresData = useCallback(async () => {
     setError('');
     setIsLoading(true);
@@ -143,13 +151,23 @@ export default function Dashboard() {
         setSelectedPopupIdState(initialPopupId);
       } catch (loadError) {
         setError(loadError?.message || '팝업 정보를 불러오지 못했습니다.');
+
+        const message = String(loadError?.message || '');
+        const isServerErrorStatus = isApiError(loadError)
+          && Number.isFinite(loadError?.status)
+          && loadError.status >= 500;
+        const isServerErrorMessage = message.includes('서버 오류가 발생했습니다');
+
+        if (isServerErrorStatus || isServerErrorMessage) {
+          forceLogoutOnServerError();
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     loadPopupsByStore();
-  }, [selectedStoreId]);
+  }, [selectedStoreId, forceLogoutOnServerError]);
 
   useEffect(() => {
     if (!selectedStoreId || !selectedPopupId) return;
