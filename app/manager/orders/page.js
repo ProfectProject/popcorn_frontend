@@ -101,39 +101,6 @@ function extractRecentOrdersFromDashboardMain(payload) {
   return [];
 }
 
-function extractPageMeta(payload, fallbackPage, fallbackSize, itemCount) {
-  const pageInfo = payload?.pageInfo || payload?.pagination || payload?.page || payload?.meta || {};
-  const totalElements = Number(
-    pageInfo?.totalElements
-    ?? pageInfo?.totalCount
-    ?? pageInfo?.total_count
-    ?? payload?.totalElements
-    ?? payload?.totalCount
-    ?? payload?.total_count
-    ?? itemCount
-  );
-  const totalPages = Number(
-    pageInfo?.totalPages
-    ?? pageInfo?.total_page
-    ?? payload?.totalPages
-    ?? payload?.total_pages
-    ?? (Number.isFinite(totalElements) ? Math.max(1, Math.ceil(totalElements / fallbackSize)) : 1)
-  );
-  const currentPage = Number(
-    pageInfo?.page
-    ?? pageInfo?.currentPage
-    ?? pageInfo?.current_page
-    ?? payload?.page
-    ?? fallbackPage
-  );
-
-  return {
-    totalElements: Number.isFinite(totalElements) ? totalElements : itemCount,
-    totalPages: Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1,
-    currentPage: Number.isFinite(currentPage) ? currentPage : fallbackPage
-  };
-}
-
 export default function OrdersPage() {
   const router = useRouter();
   const [user, setUser] = useState({
@@ -234,9 +201,10 @@ export default function OrdersPage() {
 
       try {
         const pageIndex = Math.max(0, currentPage - 1);
+        const FETCH_SIZE = 200;
         const orderPage = await getDashboardOrders({
-          page: pageIndex,
-          size: pageSize,
+          page: 0,
+          size: FETCH_SIZE,
           // orderquery는 createdAt 기준 정렬이 가장 안정적이다(orderedAt null 데이터 존재).
           sortBy: 'createdAt',
           sortDirection: 'DESC',
@@ -247,8 +215,8 @@ export default function OrdersPage() {
         console.log('[ORDERS][DASHBOARD_ORDERS][RAW]', {
           selectedStoreId,
           selectedPopupId,
-          pageIndex,
-          pageSize,
+          pageIndex: 0,
+          pageSize: FETCH_SIZE,
           received: Array.isArray(items) ? items.length : 0
         });
 
@@ -278,12 +246,17 @@ export default function OrdersPage() {
         }
         if (canceled) return;
 
-        // 1차 렌더는 즉시 표시
-        setOrders(mappedOrders);
-
-        const pageMeta = extractPageMeta(orderPage, pageIndex, pageSize, mappedOrders.length);
-        setServerTotalOrders(pageMeta.totalElements);
-        setServerTotalPages(pageMeta.totalPages);
+        // 서버 정렬/페이지 불안정성을 피하기 위해 프론트에서 최신순 + 페이지네이션을 고정한다.
+        const sortedOrders = [...mappedOrders].sort((a, b) => {
+          const aTime = new Date(a?.orderDate || 0).getTime();
+          const bTime = new Date(b?.orderDate || 0).getTime();
+          return bTime - aTime;
+        });
+        const start = pageIndex * pageSize;
+        const end = start + pageSize;
+        setOrders(sortedOrders.slice(start, end));
+        setServerTotalOrders(sortedOrders.length);
+        setServerTotalPages(Math.max(1, Math.ceil(sortedOrders.length / pageSize)));
       } catch (loadError) {
         // Fallback for legacy endpoint when a specific store/popup is selected.
         if (selectedStoreId !== 'all' && selectedPopupId !== 'all') {

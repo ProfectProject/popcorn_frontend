@@ -33,6 +33,21 @@ const AUTO_COUPON_EXTRA_CREATED_DATE_KEY = 'manager_auto_coupon_extra_created_da
 const SAMPLE_COUPON_SEEDED_KEY = 'manager_coupon_seeded_for_stats_v1';
 const COUPONS_PAGE_SIZE = 10;
 
+function toTime(value) {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : Number.NEGATIVE_INFINITY;
+}
+
+function sortCouponsByCreatedAtDesc(items = []) {
+  return [...items].sort((a, b) => {
+    const aTime = Math.max(toTime(a?.createdAt), toTime(a?.validFrom));
+    const bTime = Math.max(toTime(b?.createdAt), toTime(b?.validFrom));
+    if (aTime !== bTime) return bTime - aTime;
+    return String(b?.id || '').localeCompare(String(a?.id || ''));
+  });
+}
+
 export default function CouponsPage() {
   const router = useRouter();
   const autoCreateCheckedRef = useRef(false);
@@ -107,8 +122,9 @@ export default function CouponsPage() {
         throw new Error('쿠폰 응답 형식이 올바르지 않습니다.');
       }
       const mappedCoupons = couponList.map(mapCouponToUi);
-      setCoupons(mappedCoupons);
-      return mappedCoupons;
+      const sortedCoupons = sortCouponsByCreatedAtDesc(mappedCoupons);
+      setCoupons(sortedCoupons);
+      return sortedCoupons;
     } catch (loadError) {
       setError(loadError?.message || '쿠폰 목록을 불러오지 못했습니다.');
       return [];
@@ -291,7 +307,10 @@ export default function CouponsPage() {
 
       if (created && typeof created === 'object') {
         const mappedCreated = mapCouponToUi(created);
-        setCoupons((prev) => [mappedCreated, ...prev.filter((coupon) => coupon.id !== mappedCreated.id)]);
+        setCoupons((prev) => sortCouponsByCreatedAtDesc([
+          mappedCreated,
+          ...prev.filter((coupon) => coupon.id !== mappedCreated.id)
+        ]));
       } else {
         await loadCoupons();
       }
@@ -352,7 +371,7 @@ export default function CouponsPage() {
         }
       }
 
-      setCoupons((prev) => [mapCouponToUi(savedCoupon), ...prev]);
+      setCoupons((prev) => sortCouponsByCreatedAtDesc([mapCouponToUi(savedCoupon), ...prev]));
       if (autoTriggered) {
         markAutoCouponCreatedToday();
       }
@@ -419,9 +438,9 @@ export default function CouponsPage() {
     try {
       const updated = await updateCouponStatusApi(statusTargetCoupon.id, nextStatus);
 
-      setCoupons(prev => prev.map((coupon) => (
+      setCoupons(prev => sortCouponsByCreatedAtDesc(prev.map((coupon) => (
         coupon.id === statusTargetCoupon.id ? mapCouponToUi(updated) : coupon
-      )));
+      ))));
       closeStatusModal();
     } catch (saveError) {
       setError(saveError?.message || '쿠폰 상태 변경에 실패했습니다.');

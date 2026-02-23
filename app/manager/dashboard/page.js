@@ -31,8 +31,6 @@ import {
   cachedGetOrderSummary as getOrderSummary
 } from '../../../lib/cachedManagerApi';
 
-const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
-
 function countRecentOrders(orderList, days = 7) {
   const since = new Date();
   since.setHours(0, 0, 0, 0);
@@ -44,6 +42,29 @@ function countRecentOrders(orderList, days = 7) {
     if (Number.isNaN(orderDate.getTime())) return false;
     return orderDate >= since;
   }).length;
+}
+
+function isPaidOrderItem(item) {
+  return String(item?.paymentStatus || '').toUpperCase() === 'PAID';
+}
+
+function buildRecentDateWindow(days = 7) {
+  const dates = [];
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - i);
+    dates.push(d);
+  }
+  return dates;
+}
+
+function toDateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export default function Dashboard() {
@@ -196,7 +217,12 @@ export default function Dashboard() {
           while (orderItems.length < targetCount) {
             const remaining = targetCount - orderItems.length;
             const currentSize = Math.min(pageSize, remaining);
-            const orderItemPage = await listOrderItems(selectedStoreId, selectedPopupId, { page, size: currentSize });
+            const orderItemPage = await listOrderItems(selectedStoreId, selectedPopupId, {
+              page,
+              size: currentSize,
+              sortBy: 'createdAt',
+              sortDirection: 'DESC'
+            });
             const items = Array.isArray(orderItemPage?.items) ? orderItemPage.items : [];
 
             if (items.length === 0) break;
@@ -285,8 +311,54 @@ export default function Dashboard() {
 
   const stats = useMemo(() => {
     const weeklyOrdersFallback = countRecentOrders(orders, 7);
+    const completedOrders = orders.filter((order) => order.status === 'completed');
+    const popupRevenue = completedOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
 
-    // 📊 새로운 대시보드 데이터 사용 (우선순위)
+    const now = new Date();
+    const monthlyCompletedOrders = completedOrders.filter((order) => {
+      if (!order.orderDate) return false;
+      const ordered = new Date(order.orderDate);
+      return ordered.getFullYear() === now.getFullYear() && ordered.getMonth() === now.getMonth();
+    });
+    const monthlyRevenue = monthlyCompletedOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+
+    const paidItemRevenue = orderItems.reduce((sum, item) => {
+      if (!isPaidOrderItem(item)) return sum;
+      return sum + Number(item?.linePrice || 0);
+    }, 0);
+    const totalRevenue = popupRevenue > 0 ? popupRevenue : paidItemRevenue;
+
+    // 선택된 팝업 데이터가 우선이다.
+    if (selectedPopupId) {
+      return [
+        {
+          title: '전체 매출',
+          value: `₩${new Intl.NumberFormat('ko-KR').format(totalRevenue)}`,
+          change: '선택 팝업 기준',
+          positive: true
+        },
+        {
+          title: '주문 건수',
+          value: `${weeklyOrdersFallback}건`,
+          change: '최근 7일',
+          positive: true
+        },
+        {
+          title: '이번 달',
+          value: `${monthlyCompletedOrders.length}건`,
+          change: `₩${new Intl.NumberFormat('ko-KR').format(monthlyRevenue)}`,
+          positive: true
+        },
+        {
+          title: '선택된 팝업',
+          value: `${orders.length}건`,
+          change: `체크인 ${summary?.checkedInOrders ?? 0}건`,
+          positive: true
+        }
+      ];
+    }
+
+    // 팝업 선택 전에는 store-level 대시보드 값 사용
     if (dashboardMain && isDashboardHealthy) {
       const weeklyOrders = dashboardMain.weeklyOrders ?? weeklyOrdersFallback;
       return [
@@ -307,18 +379,12 @@ export default function Dashboard() {
           value: `${dashboardMain.monthlyOrders || 0}건`,
           change: `₩${new Intl.NumberFormat('ko-KR').format(dashboardMain.monthlyRevenue || 0)}`,
           positive: true
-        },
-        {
-          title: '선택된 팝업',
-          value: `${orders.length}건`,
-          change: `체크인 ${summary?.checkedInOrders ?? 0}건`,
-          positive: true
         }
       ];
     }
 
     // 🔄 기존 팝업별 데이터 사용 (fallback)
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    const legacyTotalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
     const completedCount = orders.filter((order) => order.status === 'completed').length;
     const todayCount = orders.filter((order) => {
       if (!order.orderDate) return false;
@@ -332,7 +398,7 @@ export default function Dashboard() {
     return [
       {
         title: '총 매출',
-        value: `₩${new Intl.NumberFormat('ko-KR').format(totalRevenue)}`,
+        value: `₩${new Intl.NumberFormat('ko-KR').format(legacyTotalRevenue)}`,
         change: `완료 ${completedCount}건`,
         positive: true
       },
@@ -349,24 +415,34 @@ export default function Dashboard() {
         positive: true
       }
     ];
-  }, [orders, summary, dashboardMain, isDashboardHealthy]);
+  }, [orders, summary, dashboardMain, isDashboardHealthy, selectedPopupId, orderItems]);
 
   const chartData = useMemo(() => {
-    const revenueByDay = new Map();
+    const dates = buildRecentDateWindow(7);
+    const revenueByDay = new Map(dates.map((d) => [toDateKey(d), 0]));
+    const since = dates[0];
+
     orders.forEach((order) => {
       if (!order.orderDate) return;
-      const dayLabel = DAY_LABELS[new Date(order.orderDate).getDay()];
-      revenueByDay.set(dayLabel, (revenueByDay.get(dayLabel) || 0) + (order.totalAmount || 0));
+      if (order.status !== 'completed') return;
+      const d = new Date(order.orderDate);
+      if (Number.isNaN(d.getTime()) || d < since) return;
+      d.setHours(0, 0, 0, 0);
+      const key = toDateKey(d);
+      if (!revenueByDay.has(key)) return;
+      revenueByDay.set(key, (revenueByDay.get(key) || 0) + (order.totalAmount || 0));
     });
 
-    const labels = ['월', '화', '수', '목', '금', '토', '일'];
-    const mapped = labels.map((label) => ({
-      day: label,
-      value: Number(((revenueByDay.get(label) || 0) / 1000000).toFixed(1))
-    }));
+    const mapped = dates.map((d) => {
+      const key = toDateKey(d);
+      return {
+        day: `${d.getMonth() + 1}/${d.getDate()}`,
+        value: Number(revenueByDay.get(key) || 0)
+      };
+    });
 
     if (mapped.every((item) => item.value === 0)) {
-      return labels.map((label) => ({ day: label, value: 0.1 }));
+      return mapped;
     }
 
     return mapped;
