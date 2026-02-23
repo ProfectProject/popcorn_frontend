@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, Suspense, useRef } from "react";
 import Script from "next/script";
-import { getClientApiBaseUrl } from "../../lib/clientApiBase";
+import { getClientApiBaseUrl, normalizeClientRedirectUrl } from "../../lib/clientApiBase";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,8 @@ function PaymentsContent({ initialToken }) {
   const token = initialToken || "";
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "";
   const paymentApiBase = getClientApiBaseUrl();
+  const envSuccessUrl = process.env.NEXT_PUBLIC_TOSS_SUCCESS_URL || "";
+  const envFailUrl = process.env.NEXT_PUBLIC_TOSS_FAIL_URL || "";
 
   const [scriptReady, setScriptReady] = useState(false);
   const [method, setMethod] = useState("CARD");
@@ -121,8 +123,8 @@ function PaymentsContent({ initialToken }) {
         orderId: paymentInfo.orderId || paymentInfo.orderNo,
         orderName,
         amount: paymentInfo.amount,
-        successUrl: paymentInfo.successUrl || `${paymentApiBase}/payments/success`,
-        failUrl: paymentInfo.failUrl || `${paymentApiBase}/payments/fail`,
+        successUrl: normalizeClientRedirectUrl(envSuccessUrl || paymentInfo.successUrl, "/payments/success"),
+        failUrl: normalizeClientRedirectUrl(envFailUrl || paymentInfo.failUrl, "/payments/fail"),
         customerKey: normalizeCustomerKey(paymentInfo.customerKey)
       };
 

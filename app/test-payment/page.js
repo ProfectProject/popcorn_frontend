@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
-import { getClientApiBaseUrl } from '../../lib/clientApiBase';
+import { getClientApiBaseUrl, normalizeClientRedirectUrl } from '../../lib/clientApiBase';
 
 function TestPaymentContent() {
   const [scriptReady, setScriptReady] = useState(false);
@@ -11,6 +11,8 @@ function TestPaymentContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const apiBase = getClientApiBaseUrl();
+  const envSuccessUrl = process.env.NEXT_PUBLIC_TOSS_SUCCESS_URL || '';
+  const envFailUrl = process.env.NEXT_PUBLIC_TOSS_FAIL_URL || '';
 
   const searchParams = useSearchParams();
 
@@ -101,15 +103,15 @@ function TestPaymentContent() {
         orderName: `Popcorn Test Order ${order.orderNo}`,
         amount: order.paymentAmount,
         customerKey: order.customerKey,
-        successUrl: order.successUrl || 'http://localhost:3000/payments/success',
-        failUrl: order.failUrl || 'http://localhost:3000/payments/fail'
+        successUrl: normalizeClientRedirectUrl(envSuccessUrl || order.successUrl, '/payments/success'),
+        failUrl: normalizeClientRedirectUrl(envFailUrl || order.failUrl, '/payments/fail')
       });
 
     } catch (err) {
       console.error('결제 오류:', err);
       setError(`결제 실패: ${err.message}`);
     }
-  }, [orderResult]);
+  }, [orderResult, envSuccessUrl, envFailUrl]);
 
   // 🎯 Swagger에서 온 URL 파라미터로 자동 결제 설정
   useEffect(() => {
@@ -121,8 +123,8 @@ function TestPaymentContent() {
         clientKey: process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "test_ck_AQ92ymxN34LKgMYlpPZy3ajRKXvd",
         customerKey: "guest",
         readyForPayment: true,
-        successUrl: process.env.NEXT_PUBLIC_SUCCESS_URL || `${apiBase}/payments/success`,
-        failUrl: process.env.NEXT_PUBLIC_FAIL_URL || `${apiBase}/payments/fail`
+        successUrl: envSuccessUrl || `${apiBase}/payments/success`,
+        failUrl: envFailUrl || `${apiBase}/payments/fail`
       };
 
       setOrderResult(mockOrderResult);
@@ -132,7 +134,7 @@ function TestPaymentContent() {
         setTimeout(() => startPaymentWithOrder(mockOrderResult), 1000);
       }
     }
-  }, [urlOrderId, urlOrderNo, urlAmount, autoStart, scriptReady, startPaymentWithOrder, apiBase]);
+  }, [urlOrderId, urlOrderNo, urlAmount, autoStart, scriptReady, startPaymentWithOrder, apiBase, envSuccessUrl, envFailUrl]);
 
   const startPayment = () => startPaymentWithOrder();
 

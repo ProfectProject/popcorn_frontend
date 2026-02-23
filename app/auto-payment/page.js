@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { getClientApiBaseUrl } from '../../lib/clientApiBase';
+import { getClientApiBaseUrl, normalizeClientRedirectUrl } from '../../lib/clientApiBase';
 
 function AutoPaymentContent() {
   const [scriptReady, setScriptReady] = useState(false);
@@ -21,6 +21,8 @@ function AutoPaymentContent() {
   const token = searchParams.get('token'); // 🔐 암호화된 토큰
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "test_ck_AQ92ymxN34LKgMYlpPZy3ajRKXvd";
   const paymentApiBase = getClientApiBaseUrl();
+  const envSuccessUrl = process.env.NEXT_PUBLIC_TOSS_SUCCESS_URL || '';
+  const envFailUrl = process.env.NEXT_PUBLIC_TOSS_FAIL_URL || '';
 
   // 🔐 토큰 디코딩으로 결제 정보 가져오기
   useEffect(() => {
@@ -105,8 +107,8 @@ function AutoPaymentContent() {
       const tossPayments = window.TossPayments(clientKey);
 
       // 간단한 결제 승인 - JWT 토큰 불필요
-      const successUrl = paymentInfo.successUrl || `${paymentApiBase}/payments/success`;
-      const failUrl = paymentInfo.failUrl || `${paymentApiBase}/payments/fail`;
+      const successUrl = normalizeClientRedirectUrl(envSuccessUrl || paymentInfo.successUrl, '/payments/success');
+      const failUrl = normalizeClientRedirectUrl(envFailUrl || paymentInfo.failUrl, '/payments/fail');
 
       await tossPayments.requestPayment('CARD', {
         orderId: paymentInfo.orderId || paymentInfo.orderNo,
@@ -143,7 +145,7 @@ function AutoPaymentContent() {
           });
       }, 5000);
     }
-  }, [paymentStarted, paymentInfo, token, clientKey, router, refreshPaymentToken, paymentApiBase]);
+  }, [paymentStarted, paymentInfo, token, clientKey, router, refreshPaymentToken, envSuccessUrl, envFailUrl]);
 
   // 🚀 페이지 로드 즉시 결제창 자동 실행
   useEffect(() => {
