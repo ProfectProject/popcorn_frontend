@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { getClientApiBaseUrl } from "../../../lib/clientApiBase";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +12,7 @@ function PaymentSuccessContent() {
   const paymentKey = searchParams.get("paymentKey");
   const orderId = searchParams.get("orderId");
   const amount = searchParams.get("amount");
-  const paymentApiBase = process.env.NEXT_PUBLIC_API_BASE_URL
-    || (typeof window !== "undefined" ? window.location.origin : "");
+  const paymentApiBase = getClientApiBaseUrl();
 
   // JWT 토큰 불필요 - orderId 기반 간단 결제 승인
 

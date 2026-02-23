@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, Suspense, useRef } from "react";
 import Script from "next/script";
+import { getClientApiBaseUrl } from "../../lib/clientApiBase";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +18,7 @@ function PaymentsContent({ initialToken }) {
 
   const token = initialToken || "";
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "";
-  const paymentApiBase = process.env.NEXT_PUBLIC_API_BASE_URL
-    || (typeof window !== "undefined" ? window.location.origin : "");
+  const paymentApiBase = getClientApiBaseUrl();
 
   const [scriptReady, setScriptReady] = useState(false);
   const [method, setMethod] = useState("CARD");

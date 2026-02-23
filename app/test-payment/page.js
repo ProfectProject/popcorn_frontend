@@ -3,14 +3,14 @@
 import { useCallback, useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Script from 'next/script';
+import { getClientApiBaseUrl } from '../../lib/clientApiBase';
 
 function TestPaymentContent() {
   const [scriptReady, setScriptReady] = useState(false);
   const [orderResult, setOrderResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL
-    || (typeof window !== 'undefined' ? window.location.origin : '');
+  const apiBase = getClientApiBaseUrl();
 
   const searchParams = useSearchParams();
 

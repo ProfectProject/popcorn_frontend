@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Script from 'next/script';
+import { getClientApiBaseUrl } from '../../lib/clientApiBase';
 
 function AutoPaymentContent() {
   const [scriptReady, setScriptReady] = useState(false);
@@ -19,8 +20,7 @@ function AutoPaymentContent() {
 
   const token = searchParams.get('token'); // 🔐 암호화된 토큰
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || "test_ck_AQ92ymxN34LKgMYlpPZy3ajRKXvd";
-  const paymentApiBase = process.env.NEXT_PUBLIC_API_BASE_URL
-    || (typeof window !== 'undefined' ? window.location.origin : '');
+  const paymentApiBase = getClientApiBaseUrl();
 
   // 🔐 토큰 디코딩으로 결제 정보 가져오기
   useEffect(() => {
