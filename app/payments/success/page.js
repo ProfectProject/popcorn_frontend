@@ -23,6 +23,33 @@ function PaymentSuccessContent() {
   const [latestStatus, setLatestStatus] = useState("");
   const [recentOrders, setRecentOrders] = useState([]);
   const [recentOrdersLoading, setRecentOrdersLoading] = useState(false);
+  const fetchNoStore = (url, options = {}) => {
+    const hasQuery = url.includes("?");
+    const cacheBustedUrl = `${url}${hasQuery ? "&" : "?"}_t=${Date.now()}`;
+    return fetch(cacheBustedUrl, {
+      cache: "no-store",
+      ...options,
+      headers: {
+        "Cache-Control": "no-cache",
+        ...(options.headers || {})
+      }
+    });
+  };
+  const mergeRecentOrders = (incoming = []) => {
+    setRecentOrders((prev) => {
+      const merged = [...incoming, ...prev];
+      const deduped = [];
+      const seen = new Set();
+
+      merged.forEach((item) => {
+        const key = String(item?.orderId || item?.orderNo || item?.paymentKey || Math.random());
+        if (seen.has(key)) return;
+        seen.add(key);
+        deduped.push(item);
+      });
+      return deduped.slice(0, 5);
+    });
+  };
   const sanitize = (value) => {
     if (!value) {
       return "-";
@@ -45,6 +72,16 @@ function PaymentSuccessContent() {
   }, []);
 
   useEffect(() => {
+    if (!orderId) return;
+    mergeRecentOrders([{
+      orderId,
+      orderNo: orderId,
+      status: "PENDING",
+      amount: Number(amount) || amount
+    }]);
+  }, [orderId, amount]);
+
+  useEffect(() => {
     const confirmPayment = async () => {
       if (hasConfirmedRef.current) {
         return;
@@ -61,7 +98,7 @@ function PaymentSuccessContent() {
           "Content-Type": "application/json"
         };
 
-        const response = await fetch(`${paymentApiBase}/api/pay/v1/payments/confirm-async`, {
+        const response = await fetchNoStore(`${paymentApiBase}/api/pay/v1/payments/confirm-async`, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -85,6 +122,17 @@ function PaymentSuccessContent() {
         }
 
         const result = await response.json();
+        const confirmed = result?.data;
+        if (confirmed && typeof confirmed === "object") {
+          mergeRecentOrders([confirmed]);
+        } else {
+          mergeRecentOrders([{
+            orderId,
+            orderNo: orderId,
+            status: "PAID",
+            amount: Number(amount) || amount
+          }]);
+        }
         if (response.status === 202) {
           setStatus("pending");
           setMessage("승인 처리 중입니다. 잠시 후 결제 내역을 확인해주세요.");
@@ -102,15 +150,15 @@ function PaymentSuccessContent() {
   }, [paymentKey, orderId, amount, paymentApiBase]);
 
   useEffect(() => {
-    if (status !== "pending" || !orderId) {
+    if (!orderId || (status !== "pending" && status !== "success")) {
       return;
     }
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = status === "pending" ? 10 : 4;
     const intervalId = setInterval(async () => {
       attempts += 1;
       try {
-        const response = await fetch(`${paymentApiBase}/api/pay/v1/payments/orders/${orderId}/latest`);
+        const response = await fetchNoStore(`${paymentApiBase}/api/pay/v1/payments/orders/${orderId}/latest`);
         if (!response.ok) {
           return;
         }
@@ -118,14 +166,20 @@ function PaymentSuccessContent() {
         const paymentStatus = result?.data?.status;
         if (paymentStatus) {
           setLatestStatus(paymentStatus);
+          mergeRecentOrders([{
+            orderId,
+            orderNo: orderId,
+            status: paymentStatus,
+            amount: Number(amount) || amount
+          }]);
         }
-        if (paymentStatus === "PAID") {
+        if (status === "pending" && paymentStatus === "PAID") {
           setStatus("success");
           setMessage("결제가 성공적으로 완료되었습니다.");
           clearInterval(intervalId);
           return;
         }
-        if (paymentStatus === "FAILED" || paymentStatus === "CANCELLED") {
+        if (status === "pending" && (paymentStatus === "FAILED" || paymentStatus === "CANCELLED")) {
           setStatus("error");
           setMessage(`결제가 ${paymentStatus} 상태입니다.`);
           clearInterval(intervalId);
@@ -141,7 +195,7 @@ function PaymentSuccessContent() {
     }, 3000);
 
     return () => clearInterval(intervalId);
-  }, [status, orderId, paymentApiBase]);
+  }, [status, orderId, paymentApiBase, amount]);
 
   useEffect(() => {
     if (!orderId) return;
@@ -172,27 +226,29 @@ function PaymentSuccessContent() {
       setRecentOrdersLoading(true);
       try {
         // 우선 최신 결제 상태 응답에서 내역 후보를 파싱한다.
-        const latestRes = await fetch(`${paymentApiBase}/api/pay/v1/payments/orders/${orderId}/latest`);
+        const latestRes = await fetchNoStore(`${paymentApiBase}/api/pay/v1/payments/orders/${orderId}/latest`);
         if (latestRes.ok) {
           const latestPayload = await latestRes.json();
           const normalized = normalizeOrderList(latestPayload);
           if (normalized.length > 0) {
-            setRecentOrders(normalized.slice(0, 5));
+            mergeRecentOrders(normalized);
             return;
           }
         }
 
         // 최신 응답에 배열이 없을 때 상세 조회를 한 번 더 시도한다.
-        const detailRes = await fetch(`${paymentApiBase}/api/pay/v1/payments/orders/${orderId}`);
+        const detailRes = await fetchNoStore(`${paymentApiBase}/api/pay/v1/payments/orders/${orderId}`);
         if (!detailRes.ok) {
           setRecentOrders([]);
           return;
         }
         const detailPayload = await detailRes.json();
         const normalized = normalizeOrderList(detailPayload);
-        setRecentOrders(normalized.slice(0, 5));
+        if (normalized.length > 0) {
+          mergeRecentOrders(normalized);
+        }
       } catch (_error) {
-        setRecentOrders([]);
+        // Keep already seeded "just paid" order row even when history lookup fails.
       } finally {
         setRecentOrdersLoading(false);
       }

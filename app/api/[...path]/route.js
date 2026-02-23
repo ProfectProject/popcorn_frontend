@@ -132,6 +132,21 @@ async function forward(request, context) {
   const startedAt = Date.now();
   try {
     const resolvedParams = context?.params ? (await context.params) : {};
+    const pathSegments = Array.isArray(resolvedParams?.path) ? resolvedParams.path : [];
+    const firstSegment = pathSegments[0] || '';
+    if (firstSegment === 'orderquery') {
+      const authHeader = request.headers.get('authorization');
+      if (!authHeader || !/^Bearer\s+.+/i.test(authHeader)) {
+        return Response.json(
+          {
+            code: 401,
+            message: 'orderquery API는 인증이 필요합니다.'
+          },
+          { status: 401 }
+        );
+      }
+    }
+
     const targetUrls = buildTargetUrls(resolvedParams?.path, request.url);
     const method = request.method;
     const headers = createForwardHeaders(request.headers);
