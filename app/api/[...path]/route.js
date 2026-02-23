@@ -44,7 +44,9 @@ function sanitizeHeadersForLog(headersLike) {
 
 const API_BASE_URL = normalizeBaseUrl(
   process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL,
-  'http://localhost:8080'
+  process.env.NODE_ENV === 'production'
+    ? 'https://api.goormpopcorn.shop'
+    : 'http://localhost:8080'
 );
 const STORE_API_BASE_URL = normalizeBaseUrl(
   process.env.NEXT_PUBLIC_STORE_API_BASE_URL
