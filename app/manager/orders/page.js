@@ -10,6 +10,8 @@ import './orders.css';
 import {
   aggregateOrdersFromOrderItems,
   clearManagerSession,
+  getDashboardMain,
+  getDashboardMainByStore,
   getDashboardOrders,
   getManagerToken,
   getManagerUser,
@@ -89,6 +91,14 @@ function mapDashboardOrdersToUi(orders = []) {
       };
     })
     .sort((a, b) => new Date(b.orderDate || 0) - new Date(a.orderDate || 0));
+}
+
+function extractRecentOrdersFromDashboardMain(payload) {
+  const data = payload?.data ?? payload;
+  if (!data || typeof data !== 'object') return [];
+  if (Array.isArray(data.recentOrders)) return data.recentOrders;
+  if (Array.isArray(data.orders)) return data.orders;
+  return [];
 }
 
 function extractPageMeta(payload, fallbackPage, fallbackSize, itemCount) {
@@ -229,10 +239,18 @@ export default function OrdersPage() {
           size: pageSize,
           // orderquery는 createdAt 기준 정렬이 가장 안정적이다(orderedAt null 데이터 존재).
           sortBy: 'createdAt',
-          sortDirection: 'desc',
+          sortDirection: 'DESC',
           popupId: selectedPopupId === 'all' ? undefined : selectedPopupId
         });
         let items = extractDashboardOrderItems(orderPage);
+
+        console.log('[ORDERS][DASHBOARD_ORDERS][RAW]', {
+          selectedStoreId,
+          selectedPopupId,
+          pageIndex,
+          pageSize,
+          received: Array.isArray(items) ? items.length : 0
+        });
 
         if (selectedStoreId !== 'all') {
           items = items.filter((item) => (
@@ -244,6 +262,15 @@ export default function OrdersPage() {
             String(item.popupId || item.popup_id || item.popup?.id || '') === String(selectedPopupId)
           ));
         }
+
+        console.log('[ORDERS][DASHBOARD_ORDERS][FILTERED]', {
+          selectedStoreId,
+          selectedPopupId,
+          filtered: Array.isArray(items) ? items.length : 0,
+          latestCreatedAt: items?.[0]?.createdAt || null,
+          latestOrderedAt: items?.[0]?.orderedAt || null,
+          latestOrderId: items?.[0]?.orderId || items?.[0]?.id || null
+        });
 
         let mappedOrders = aggregateOrdersFromOrderItems(items);
         if (mappedOrders.length === 0 && items.length > 0) {
@@ -276,6 +303,34 @@ export default function OrdersPage() {
           } catch (_legacyError) {
             // Continue to regular error handling below.
           }
+        }
+
+        // Fallback 2: dashboard main recentOrders (orderquery /dashboard/orders 500 대응)
+        try {
+          const baseDate = new Date().toISOString().split('T')[0];
+          const dashboardMain = selectedStoreId === 'all'
+            ? await getDashboardMain(baseDate)
+            : await getDashboardMainByStore(selectedStoreId, baseDate);
+          const recentOrders = extractRecentOrdersFromDashboardMain(dashboardMain);
+          let mappedFallbackOrders = mapDashboardOrdersToUi(recentOrders);
+
+          if (selectedPopupId !== 'all') {
+            mappedFallbackOrders = mappedFallbackOrders.filter((order) => {
+              const raw = recentOrders.find((item) => (
+                String(item?.orderId || item?.id || item?.orderNo || '') === String(order.orderId || order.id)
+              ));
+              return String(raw?.popupId || raw?.popup_id || raw?.popup?.id || '') === String(selectedPopupId);
+            });
+          }
+
+          if (mappedFallbackOrders.length > 0) {
+            setOrders(mappedFallbackOrders);
+            setServerTotalOrders(mappedFallbackOrders.length);
+            setServerTotalPages(1);
+            return;
+          }
+        } catch (_dashboardFallbackError) {
+          // Continue to regular error handling below.
         }
 
         if (isApiError(loadError, 404) || isApiError(loadError, 403)) {
