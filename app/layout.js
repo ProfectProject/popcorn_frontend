@@ -1,4 +1,5 @@
 import "./globals.css";
+import ClientFetchLogger from "../components/ClientFetchLogger";
 
 export const metadata = {
   title: "Popcorn Payments",
@@ -24,6 +25,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
+        <ClientFetchLogger />
         {children}
       </body>
     </html>

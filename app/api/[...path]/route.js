@@ -2,6 +2,46 @@ function normalizeBaseUrl(value, fallback) {
   return (value || fallback).replace(/\/$/, '');
 }
 
+const SENSITIVE_KEYS = ['token', 'authorization', 'auth', 'password', 'secret', 'key', 'refresh'];
+
+function sanitizeUrlForLog(url) {
+  try {
+    const parsed = new URL(url);
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (SENSITIVE_KEYS.some((sensitive) => key.toLowerCase().includes(sensitive))) {
+        parsed.searchParams.set(key, '***');
+      }
+    }
+    return `${parsed.pathname}${parsed.search}`;
+  } catch (_error) {
+    return String(url);
+  }
+}
+
+function sanitizeHeadersForLog(headersLike) {
+  const safe = {};
+  try {
+    const headers = new Headers(headersLike || {});
+    headers.forEach((value, key) => {
+      const lowered = key.toLowerCase();
+      if (
+        lowered.includes('authorization')
+        || lowered.includes('cookie')
+        || lowered.includes('token')
+        || lowered.includes('secret')
+        || lowered.includes('key')
+      ) {
+        safe[key] = '***';
+      } else {
+        safe[key] = value;
+      }
+    });
+  } catch (_error) {
+    return {};
+  }
+  return safe;
+}
+
 const API_BASE_URL = normalizeBaseUrl(
   process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL,
   'http://localhost:8080'
@@ -88,6 +128,8 @@ function sanitizeResponseHeaders(upstreamHeaders) {
 }
 
 async function forward(request, context) {
+  const reqId = `api-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const startedAt = Date.now();
   try {
     const resolvedParams = context?.params ? (await context.params) : {};
     const targetUrls = buildTargetUrls(resolvedParams?.path, request.url);
@@ -97,6 +139,15 @@ async function forward(request, context) {
     const body = hasBody ? await request.arrayBuffer() : undefined;
     let upstream = null;
     let lastError = null;
+
+    console.log('[API_PROXY][REQ]', {
+      reqId,
+      method,
+      source: sanitizeUrlForLog(request.url),
+      targets: targetUrls.map((target) => sanitizeUrlForLog(target)),
+      headers: sanitizeHeadersForLog(headers),
+      bodyBytes: body?.byteLength || 0
+    });
 
     for (const targetUrl of targetUrls) {
       try {
@@ -108,18 +159,42 @@ async function forward(request, context) {
         });
         break;
       } catch (error) {
+        console.error('[API_PROXY][UPSTREAM_ERR]', {
+          reqId,
+          method,
+          target: sanitizeUrlForLog(targetUrl),
+          message: error?.message || String(error)
+        });
         lastError = error;
       }
     }
     if (!upstream) throw lastError || new Error('Upstream fetch failed');
 
     const responseBody = await upstream.arrayBuffer();
+    console.log('[API_PROXY][RES]', {
+      reqId,
+      method,
+      source: sanitizeUrlForLog(request.url),
+      status: upstream.status,
+      statusText: upstream.statusText,
+      elapsedMs: Date.now() - startedAt,
+      bodyBytes: responseBody?.byteLength || 0
+    });
+
     return new Response(responseBody.byteLength > 0 ? responseBody : null, {
       status: upstream.status,
       statusText: upstream.statusText,
       headers: sanitizeResponseHeaders(upstream.headers)
     });
-  } catch (_error) {
+  } catch (error) {
+    console.error('[API_PROXY][ERR]', {
+      reqId,
+      method: request.method,
+      source: sanitizeUrlForLog(request.url),
+      elapsedMs: Date.now() - startedAt,
+      message: error?.message || String(error)
+    });
+
     return Response.json(
       {
         code: 502,
